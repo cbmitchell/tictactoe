@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+cdk.out/
+
+# CDK
+infra/dist/
+
+# Environment variables — never commit these
+.env
+.env.local
+.env.*.local
+
+# AWS CDK context (contains account/region — commit cdk.json but not this)
+cdk.context.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

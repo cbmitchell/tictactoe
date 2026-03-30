@@ -37,7 +37,7 @@ export interface GameState {
   board: Board;
   currentTurn: Player;
   winner: Player | null;
-  winningLine: [number, number, number] | null;
+  winningLine: number[] | null;
   isDrawn: boolean;
   isOver: boolean;
   mySymbol: Player;

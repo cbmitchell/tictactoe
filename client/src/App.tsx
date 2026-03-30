@@ -103,6 +103,17 @@ export default function App() {
     }
   }, [webrtc.rtcStatus, signaling.disconnect]);
 
+  // Detect peer disconnection during gameplay
+  useEffect(() => {
+    if (
+      (webrtc.rtcStatus === 'disconnected' || webrtc.rtcStatus === 'failed') &&
+      (view === 'playing' || view === 'ended')
+    ) {
+      setOpponentDisconnected(true);
+      setView('ended');
+    }
+  }, [webrtc.rtcStatus, view]);
+
   // -----------------------------------------------------------------------
   // Game
   // -----------------------------------------------------------------------
@@ -203,6 +214,8 @@ export default function App() {
             isMyTurn={game.isMyTurn}
             opponentDisconnected={opponentDisconnected}
             isOver={game.isOver || opponentDisconnected}
+            localWantsPlayAgain={game.localWantsPlayAgain}
+            peerWantsPlayAgain={game.peerWantsPlayAgain}
             onPlayAgain={handlePlayAgain}
             onDisconnect={handleDisconnect}
           />

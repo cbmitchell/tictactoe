@@ -55,6 +55,8 @@ export interface UseGameReturn extends GameState {
   makeMove: (square: number) => void;
   resetGame: () => void;
   requestPlayAgain: () => void;
+  localWantsPlayAgain: boolean;
+  peerWantsPlayAgain: boolean;
 }
 
 export function useGame({
@@ -113,9 +115,22 @@ export function useGame({
     [mySymbol, applyMoveToState, sendData]
   );
 
-  // Stable ref for onPlayAgain so the data handler doesn't need to re-register
+  // Stable refs so data message handler can read current values without stale closures
   const onPlayAgainRef = useRef(onPlayAgain);
   useEffect(() => { onPlayAgainRef.current = onPlayAgain; }, [onPlayAgain]);
+
+  const [localWantsPlayAgain, setLocalWantsPlayAgain] = useState(false);
+  const [peerWantsPlayAgain, setPeerWantsPlayAgain] = useState(false);
+  const localWantsPlayAgainRef = useRef(localWantsPlayAgain);
+  useEffect(() => { localWantsPlayAgainRef.current = localWantsPlayAgain; }, [localWantsPlayAgain]);
+
+  const doReset = useCallback(() => {
+    setBoard(emptyBoard());
+    setCurrentTurn('X');
+    setLocalWantsPlayAgain(false);
+    setPeerWantsPlayAgain(false);
+    onPlayAgainRef.current?.();
+  }, []);
 
   // Listen for moves from the peer over the data channel
   useEffect(() => {
@@ -128,26 +143,32 @@ export function useGame({
         setBoard(msg.board);
         setCurrentTurn(msg.currentTurn);
       } else if (msg.type === 'play-again') {
-        setBoard(emptyBoard());
-        setCurrentTurn('X');
-        onPlayAgainRef.current?.();
+        if (localWantsPlayAgainRef.current) {
+          doReset();
+        } else {
+          setPeerWantsPlayAgain(true);
+        }
       }
     });
 
     return unsubscribe;
-  }, [onDataMessage, mySymbol, applyMoveToState]);
+  }, [onDataMessage, mySymbol, applyMoveToState, doReset]);
 
   const resetGame = useCallback(() => {
     setBoard(emptyBoard());
     setCurrentTurn('X');
+    setLocalWantsPlayAgain(false);
+    setPeerWantsPlayAgain(false);
   }, []);
 
   const requestPlayAgain = useCallback(() => {
-    setBoard(emptyBoard());
-    setCurrentTurn('X');
     sendData({ type: 'play-again' });
-    onPlayAgainRef.current?.();
-  }, [sendData]);
+    if (peerWantsPlayAgain) {
+      doReset();
+    } else {
+      setLocalWantsPlayAgain(true);
+    }
+  }, [sendData, peerWantsPlayAgain, doReset]);
 
   return {
     board,
@@ -161,5 +182,7 @@ export function useGame({
     makeMove,
     resetGame,
     requestPlayAgain,
+    localWantsPlayAgain,
+    peerWantsPlayAgain,
   };
 }

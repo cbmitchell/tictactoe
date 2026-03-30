@@ -7,6 +7,7 @@
 //   - Opponent disconnected notice
 //   - Play again button when the game is over
 
+import React from 'react';
 import { Player } from '../lib/signaling';
 
 interface GameStatusProps {
@@ -17,6 +18,8 @@ interface GameStatusProps {
   isMyTurn: boolean;
   opponentDisconnected: boolean;
   isOver: boolean;
+  localWantsPlayAgain: boolean;
+  peerWantsPlayAgain: boolean;
   onPlayAgain: () => void;
   onDisconnect: () => void;
 }
@@ -29,6 +32,8 @@ export default function GameStatus({
   isMyTurn,
   opponentDisconnected,
   isOver,
+  localWantsPlayAgain,
+  peerWantsPlayAgain,
   onPlayAgain,
   onDisconnect,
 }: GameStatusProps) {
@@ -46,13 +51,27 @@ export default function GameStatus({
     message = `Waiting for opponent (${currentTurn})…`;
   }
 
+  let rematchUI: React.ReactNode = null;
+  if (isOver && !opponentDisconnected) {
+    if (localWantsPlayAgain) {
+      rematchUI = <p>Waiting for opponent to accept rematch…</p>;
+    } else if (peerWantsPlayAgain) {
+      rematchUI = (
+        <>
+          <p>Your opponent wants a rematch.</p>
+          <button onClick={onPlayAgain}>Accept rematch</button>
+        </>
+      );
+    } else {
+      rematchUI = <button onClick={onPlayAgain}>Play again</button>;
+    }
+  }
+
   return (
     <div>
       <p>You are playing as {mySymbol}</p>
       <p>{message}</p>
-      {isOver && (
-        <button onClick={onPlayAgain}>Play again</button>
-      )}
+      {rematchUI}
       <button onClick={onDisconnect}>Disconnect</button>
     </div>
   );

@@ -55,6 +55,19 @@ export class SignalingStack extends cdk.Stack {
     // patterns.
     // -------------------------------------------------------------------------
 
+    // authorizer — REQUEST authorizer for the $connect route.
+    // Validates the `token` query string parameter against CONNECT_SECRET.
+    // Pass CONNECT_SECRET at deploy time: CONNECT_SECRET=yourvalue npx cdk deploy
+    const authorizerFn = new lambdaNode.NodejsFunction(this, 'AuthorizerFunction', {
+      ...commonLambdaProps,
+      entry: path.join(__dirname, '../lambda/authorizer.ts'),
+      functionName: 'tictactoe-authorizer',
+      description: 'WebSocket $connect authorizer — validates token query parameter',
+      environment: {
+        CONNECT_SECRET: process.env.CONNECT_SECRET ?? '',
+      },
+    });
+
     // $connect — fires when a client establishes a WebSocket connection.
     // Minimal handler; nothing to store until the client identifies themselves
     // with create-game or join-game.
@@ -160,6 +173,31 @@ export class SignalingStack extends cdk.Stack {
       stageName: 'prod',
       autoDeploy: true,
     });
+
+    // -------------------------------------------------------------------------
+    // $connect authorizer — CfnAuthorizer (L1) because L2 WebSocket authorizer
+    // support is incomplete in CDK. Uses simple response format so the Lambda
+    // can return { isAuthorized: bool } directly.
+    // -------------------------------------------------------------------------
+    const cfnAuthorizer = new apigatewayv2.CfnAuthorizer(this, 'ConnectAuthorizer', {
+      apiId: api.apiId,
+      authorizerType: 'REQUEST',
+      identitySource: ['route.request.querystring.token'],
+      name: 'ConnectAuthorizer',
+      authorizerUri: `arn:aws:apigateway:${this.region}:lambda:path/2015-03-31/functions/${authorizerFn.functionArn}/invocations`,
+      enableSimpleResponses: true,
+    });
+
+    // Allow API Gateway to invoke the authorizer Lambda
+    authorizerFn.addPermission('ApiGatewayInvokeAuthorizer', {
+      principal: new iam.ServicePrincipal('apigateway.amazonaws.com'),
+      sourceArn: `arn:aws:execute-api:${this.region}:${this.account}:${api.apiId}/authorizers/*`,
+    });
+
+    // Wire the authorizer to the $connect route via L1 escape hatch
+    const cfnConnectRoute = (api.node.findChild('$connect-Route') as Construct).node.defaultChild as apigatewayv2.CfnRoute;
+    cfnConnectRoute.authorizationType = 'CUSTOM';
+    cfnConnectRoute.authorizerId = cfnAuthorizer.ref;
 
     // -------------------------------------------------------------------------
     // API Gateway ManageConnections permission

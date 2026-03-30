@@ -206,10 +206,11 @@ rounds to zero or low single-digit cents per month.
 ### Environment variables (client)
 
 ```
-VITE_SIGNALING_URL=   # API Gateway WebSocket endpoint URL
-VITE_TURN_URL=        # TURN server URL
-VITE_TURN_USERNAME=   # TURN credentials
-VITE_TURN_CREDENTIAL= # TURN credentials
+VITE_SIGNALING_URL=    # API Gateway WebSocket endpoint URL
+VITE_TURN_URL=         # TURN server URL
+VITE_TURN_USERNAME=    # TURN credentials
+VITE_TURN_CREDENTIAL=  # TURN credentials
+VITE_CONNECT_SECRET=   # Must match CONNECT_SECRET passed to cdk deploy
 ```
 
 ---
@@ -229,12 +230,22 @@ VITE_TURN_CREDENTIAL= # TURN credentials
 - `aws-cdk-lib/aws-dynamodb` — single table
 - `aws-cdk-lib/aws-iam` — least-privilege policies per Lambda
 
+### Environment variables (stack)
+
+```
+CONNECT_SECRET=   # Shared secret for the $connect authorizer — pass at deploy time
+```
+
+The secret is embedded in the Lambda authorizer at synth time. It must match
+`VITE_CONNECT_SECRET` in the client build. It is not strong authentication —
+just a barrier against casual endpoint abuse.
+
 ### Deployment
 
 ```bash
 cd infra
 npm run build
-npx cdk deploy
+CONNECT_SECRET=yourvalue npx cdk deploy
 ```
 
 ### Useful CDK commands

@@ -17,6 +17,7 @@ import {
 } from '../lib/signaling';
 
 const SIGNALING_URL = import.meta.env.VITE_SIGNALING_URL as string;
+const CONNECT_SECRET = import.meta.env.VITE_CONNECT_SECRET as string;
 
 export type SignalingStatus =
   | 'idle'
@@ -54,7 +55,7 @@ export function useSignaling(): UseSignalingReturn {
     }
 
     setStatus('connecting');
-    const ws = new WebSocket(SIGNALING_URL);
+    const ws = new WebSocket(`${SIGNALING_URL}?token=${CONNECT_SECRET}`);
     wsRef.current = ws;
 
     ws.onopen = () => {

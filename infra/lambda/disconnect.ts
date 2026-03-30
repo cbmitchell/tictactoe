@@ -18,7 +18,7 @@ import {
   deleteRecord,
   makeApiGwClient,
   sendToConnection,
-} from '../shared';
+} from './shared';
 
 export const handler = async (event: WsEvent): Promise<WsResult> => {
   const { connectionId, domainName, stage } = event.requestContext;

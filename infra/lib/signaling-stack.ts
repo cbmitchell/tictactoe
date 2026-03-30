@@ -30,14 +30,14 @@ export class SignalingStack extends cdk.Stack {
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: 'ttl',
-      removalPolicy: cdk.RemovalPolicy.DESTROY, // safe for dev; change for prod
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
     // -------------------------------------------------------------------------
     // Shared Lambda configuration
     // -------------------------------------------------------------------------
     const commonLambdaProps: Partial<lambdaNode.NodejsFunctionProps> = {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       environment: {
         TABLE_NAME: table.tableName,
       },
@@ -45,7 +45,7 @@ export class SignalingStack extends cdk.Stack {
         minify: true,
         sourceMap: false,
         // esbuild target — matches the Lambda Node runtime
-        target: 'node20',
+        target: 'node22',
       },
     };
 
@@ -60,7 +60,7 @@ export class SignalingStack extends cdk.Stack {
     // with create-game or join-game.
     const connectFn = new lambdaNode.NodejsFunction(this, 'ConnectFunction', {
       ...commonLambdaProps,
-      entry: path.join(__dirname, '../lambda/connect/index.ts'),
+      entry: path.join(__dirname, '../lambda/connect.ts'),
       functionName: 'tictactoe-connect',
       description: 'Handles WebSocket $connect — logs connection, no DB write',
     });
@@ -70,7 +70,7 @@ export class SignalingStack extends cdk.Stack {
     // both DynamoDB records.
     const disconnectFn = new lambdaNode.NodejsFunction(this, 'DisconnectFunction', {
       ...commonLambdaProps,
-      entry: path.join(__dirname, '../lambda/disconnect/index.ts'),
+      entry: path.join(__dirname, '../lambda/disconnect.ts'),
       functionName: 'tictactoe-disconnect',
       description: 'Handles WebSocket $disconnect — notifies peer, cleans up DB',
     });
@@ -80,7 +80,7 @@ export class SignalingStack extends cdk.Stack {
     // returns the code to the caller.
     const createGameFn = new lambdaNode.NodejsFunction(this, 'CreateGameFunction', {
       ...commonLambdaProps,
-      entry: path.join(__dirname, '../lambda/create-game/index.ts'),
+      entry: path.join(__dirname, '../lambda/create-game.ts'),
       functionName: 'tictactoe-create-game',
       description: 'Handles create-game — generates invite code, stores session',
     });
@@ -89,7 +89,7 @@ export class SignalingStack extends cdk.Stack {
     // Looks up the session, pairs both peers, notifies both connections.
     const joinGameFn = new lambdaNode.NodejsFunction(this, 'JoinGameFunction', {
       ...commonLambdaProps,
-      entry: path.join(__dirname, '../lambda/join-game/index.ts'),
+      entry: path.join(__dirname, '../lambda/join-game.ts'),
       functionName: 'tictactoe-join-game',
       description: 'Handles join-game — pairs peers, notifies both',
     });
@@ -98,7 +98,7 @@ export class SignalingStack extends cdk.Stack {
     // between peers verbatim. Does not inspect payload contents.
     const signalFn = new lambdaNode.NodejsFunction(this, 'SignalFunction', {
       ...commonLambdaProps,
-      entry: path.join(__dirname, '../lambda/signal/index.ts'),
+      entry: path.join(__dirname, '../lambda/signal.ts'),
       functionName: 'tictactoe-signal',
       description: 'Handles signal — relays WebRTC signaling payload to other peer',
     });

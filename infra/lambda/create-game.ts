@@ -21,7 +21,7 @@ import {
   ttlIn24Hours,
   makeApiGwClient,
   sendToConnection,
-} from '../shared';
+} from './shared';
 
 /** Generates a random uppercase alphanumeric invite code */
 function generateCode(length = 6): string {

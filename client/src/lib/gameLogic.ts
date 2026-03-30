@@ -4,7 +4,7 @@
 
 import { Board, Player, Square } from './signaling';
 
-export { Board, Player, Square };
+export type { Board, Player, Square };
 
 // All possible winning lines as index triplets
 export const WIN_LINES: [number, number, number][] = [

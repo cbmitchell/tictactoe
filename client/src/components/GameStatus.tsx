@@ -18,6 +18,7 @@ interface GameStatusProps {
   opponentDisconnected: boolean;
   isOver: boolean;
   onPlayAgain: () => void;
+  onDisconnect: () => void;
 }
 
 export default function GameStatus({
@@ -29,6 +30,7 @@ export default function GameStatus({
   opponentDisconnected,
   isOver,
   onPlayAgain,
+  onDisconnect,
 }: GameStatusProps) {
   let message: string;
 
@@ -51,6 +53,7 @@ export default function GameStatus({
       {isOver && (
         <button onClick={onPlayAgain}>Play again</button>
       )}
+      <button onClick={onDisconnect}>Disconnect</button>
     </div>
   );
 }

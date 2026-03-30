@@ -48,17 +48,20 @@ export interface UseGameProps {
   role: Role;
   sendData: UseWebRTCReturn['sendData'];
   onDataMessage: (handler: (msg: DataChannelMessage) => void) => () => void;
+  onPlayAgain?: () => void;
 }
 
 export interface UseGameReturn extends GameState {
   makeMove: (square: number) => void;
   resetGame: () => void;
+  requestPlayAgain: () => void;
 }
 
 export function useGame({
   role,
   sendData,
   onDataMessage,
+  onPlayAgain,
 }: UseGameProps): UseGameReturn {
   const mySymbol: Player = role === 'host' ? 'X' : 'O';
 
@@ -110,6 +113,10 @@ export function useGame({
     [mySymbol, applyMoveToState, sendData]
   );
 
+  // Stable ref for onPlayAgain so the data handler doesn't need to re-register
+  const onPlayAgainRef = useRef(onPlayAgain);
+  useEffect(() => { onPlayAgainRef.current = onPlayAgain; }, [onPlayAgain]);
+
   // Listen for moves from the peer over the data channel
   useEffect(() => {
     const unsubscribe = onDataMessage((msg) => {
@@ -120,6 +127,10 @@ export function useGame({
         // Host can send a full state sync — useful if guest reconnects
         setBoard(msg.board);
         setCurrentTurn(msg.currentTurn);
+      } else if (msg.type === 'play-again') {
+        setBoard(emptyBoard());
+        setCurrentTurn('X');
+        onPlayAgainRef.current?.();
       }
     });
 
@@ -130,6 +141,13 @@ export function useGame({
     setBoard(emptyBoard());
     setCurrentTurn('X');
   }, []);
+
+  const requestPlayAgain = useCallback(() => {
+    setBoard(emptyBoard());
+    setCurrentTurn('X');
+    sendData({ type: 'play-again' });
+    onPlayAgainRef.current?.();
+  }, [sendData]);
 
   return {
     board,
@@ -142,5 +160,6 @@ export function useGame({
     isMyTurn,
     makeMove,
     resetGame,
+    requestPlayAgain,
   };
 }

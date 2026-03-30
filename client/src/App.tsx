@@ -110,6 +110,7 @@ export default function App() {
     role,
     sendData: webrtc.sendData,
     onDataMessage,
+    onPlayAgain: useCallback(() => setView('playing'), []),
   });
 
   // Transition to ended when game is over
@@ -165,6 +166,11 @@ export default function App() {
   }, [signaling.status, role, pendingJoinCode, signaling.sendJoinGame]);
 
   const handlePlayAgain = useCallback(() => {
+    setOpponentDisconnected(false);
+    game.requestPlayAgain();
+  }, [game]);
+
+  const handleDisconnect = useCallback(() => {
     webrtc.close();
     signaling.disconnect();
     setInviteCode(null);
@@ -198,6 +204,7 @@ export default function App() {
             opponentDisconnected={opponentDisconnected}
             isOver={game.isOver || opponentDisconnected}
             onPlayAgain={handlePlayAgain}
+            onDisconnect={handleDisconnect}
           />
           <Board
             board={game.board}

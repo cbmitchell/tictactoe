@@ -89,7 +89,11 @@ export interface SyncMessage {
   currentTurn: Player;
 }
 
-export type DataChannelMessage = MoveMessage | SyncMessage;
+export interface PlayAgainMessage {
+  type: 'play-again';
+}
+
+export type DataChannelMessage = MoveMessage | SyncMessage | PlayAgainMessage;
 
 // -----------------------------------------------------------------------
 // Game types (used by both signaling.ts and gameLogic.ts)

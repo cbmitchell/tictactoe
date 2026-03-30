@@ -29,7 +29,7 @@ export default function BoardComponent({
   const winningSet = winningLine ? new Set(winningLine) : null;
 
   return (
-    <div>
+    <div className="grid grid-cols-3 gap-2 w-full max-w-xs sm:max-w-sm aspect-square">
       {board.map((value: Square, index: number) => {
         const isWinning = winningSet?.has(index) ?? false;
         const isEmpty = value === null;
@@ -42,6 +42,34 @@ export default function BoardComponent({
             disabled={!isClickable}
             data-winning={isWinning}
             data-value={value ?? ''}
+            className={[
+              'flex items-center justify-center rounded-xl text-4xl sm:text-5xl font-bold transition-all duration-150 aspect-square select-none',
+              // Base background
+              isWinning
+                ? 'bg-indigo-100 dark:bg-indigo-900/50'
+                : 'bg-white dark:bg-gray-900',
+              // Border
+              'border-2',
+              isWinning
+                ? 'border-indigo-400 dark:border-indigo-500'
+                : 'border-gray-200 dark:border-gray-700',
+              // Text color by symbol
+              value === 'X'
+                ? isWinning
+                  ? 'text-indigo-600 dark:text-indigo-400'
+                  : 'text-indigo-500 dark:text-indigo-400'
+                : value === 'O'
+                ? isWinning
+                  ? 'text-rose-500 dark:text-rose-400'
+                  : 'text-rose-400 dark:text-rose-400'
+                : '',
+              // Hover / cursor for clickable squares
+              isClickable
+                ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
+                : 'cursor-default',
+              // Dim non-winning squares when there's a winner
+              winningSet && !isWinning ? 'opacity-40' : 'opacity-100',
+            ].join(' ')}
           >
             {value}
           </button>

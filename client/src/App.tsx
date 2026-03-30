@@ -13,6 +13,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useSignaling } from './hooks/useSignaling';
 import { useWebRTC } from './hooks/useWebRTC';
 import { useGame, Role } from './hooks/useGame';
+import { useDarkMode } from './hooks/useDarkMode';
 import { DataChannelMessage, ServerMessage } from './lib/signaling';
 import Lobby from './components/Lobby';
 import Board from './components/Board';
@@ -21,6 +22,7 @@ import GameStatus from './components/GameStatus';
 type AppView = 'lobby' | 'signaling' | 'playing' | 'ended';
 
 export default function App() {
+  const { isDark, toggle: toggleDark } = useDarkMode();
   const [view, setView] = useState<AppView>('lobby');
   const [role, setRole] = useState<Role>('host');
   const [inviteCode, setInviteCode] = useState<string | null>(null);
@@ -194,39 +196,66 @@ export default function App() {
   // Render
   // -----------------------------------------------------------------------
   return (
-    <div>
-      {(view === 'lobby' || view === 'signaling') && (
-        <Lobby
-          signalingStatus={signaling.status}
-          inviteCode={inviteCode}
-          onCreateGame={handleCreateGame}
-          onJoinGame={handleJoinGame}
-        />
-      )}
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
+      {/* Dark mode toggle */}
+      <div className="fixed top-4 right-4 z-10">
+        <button
+          onClick={toggleDark}
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          className="p-2 rounded-full bg-white dark:bg-gray-800 shadow-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+        >
+          {isDark ? (
+            // Sun icon
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m8.66-9h-1M4.34 12h-1m15.07-6.07-.71.71M6.34 17.66l-.71.71m12.73 0-.71-.71M6.34 6.34l-.71-.71M12 7a5 5 0 1 0 0 10A5 5 0 0 0 12 7z" />
+            </svg>
+          ) : (
+            // Moon icon
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+          )}
+        </button>
+      </div>
 
-      {(view === 'playing' || view === 'ended') && (
-        <>
-          <GameStatus
-            mySymbol={game.mySymbol}
-            currentTurn={game.currentTurn}
-            winner={game.winner}
-            isDrawn={game.isDrawn}
-            isMyTurn={game.isMyTurn}
-            opponentDisconnected={opponentDisconnected}
-            isOver={game.isOver || opponentDisconnected}
-            localWantsPlayAgain={game.localWantsPlayAgain}
-            peerWantsPlayAgain={game.peerWantsPlayAgain}
-            onPlayAgain={handlePlayAgain}
-            onDisconnect={handleDisconnect}
+      <div className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
+        <h1 className="text-3xl font-bold tracking-tight mb-8 text-gray-800 dark:text-gray-100">
+          Tic-Tac-Toe
+        </h1>
+
+        {(view === 'lobby' || view === 'signaling') && (
+          <Lobby
+            signalingStatus={signaling.status}
+            inviteCode={inviteCode}
+            onCreateGame={handleCreateGame}
+            onJoinGame={handleJoinGame}
           />
-          <Board
-            board={game.board}
-            winningLine={game.winningLine}
-            isMyTurn={game.isMyTurn}
-            onSquareClick={game.makeMove}
-          />
-        </>
-      )}
+        )}
+
+        {(view === 'playing' || view === 'ended') && (
+          <div className="flex flex-col items-center gap-6 w-full max-w-sm">
+            <GameStatus
+              mySymbol={game.mySymbol}
+              currentTurn={game.currentTurn}
+              winner={game.winner}
+              isDrawn={game.isDrawn}
+              isMyTurn={game.isMyTurn}
+              opponentDisconnected={opponentDisconnected}
+              isOver={game.isOver || opponentDisconnected}
+              localWantsPlayAgain={game.localWantsPlayAgain}
+              peerWantsPlayAgain={game.peerWantsPlayAgain}
+              onPlayAgain={handlePlayAgain}
+              onDisconnect={handleDisconnect}
+            />
+            <Board
+              board={game.board}
+              winningLine={game.winningLine}
+              isMyTurn={game.isMyTurn}
+              onSquareClick={game.makeMove}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@variant dark (&:is(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+}

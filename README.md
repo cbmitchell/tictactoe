@@ -67,12 +67,12 @@ npm install
 ### 2. Deploy the signaling backend
 
 ```bash
-cd infra
-npx cdk deploy
+./deploy.sh
 ```
 
-After deployment, CDK prints a `WebSocketUrl` output. Copy it — you'll need
-it in the next step.
+This deploys the CDK stack and prints the values you need for `client/.env.local`.
+CDK auto-generates the connect secret in Secrets Manager on first deploy — you
+don't need to create it manually.
 
 ### 3. Configure the client
 
@@ -81,8 +81,9 @@ cd client
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and set `VITE_SIGNALING_URL` to the WebSocket URL from
-the CDK output.
+Edit `.env.local` and set the values printed by `deploy.sh`:
+- `VITE_SIGNALING_URL` — the WebSocket URL from the CDK output
+- `VITE_CONNECT_SECRET` — the auto-generated secret value
 
 Optionally configure TURN server credentials (see `.env.example`). Without
 them, the app falls back to STUN only, which works for most home network

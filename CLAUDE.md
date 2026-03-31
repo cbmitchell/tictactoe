@@ -128,6 +128,33 @@ Essentially free at this app's scale. API Gateway WebSocket, Lambda, and
 DynamoDB all fall well within AWS free tier for a friends-only app. Total cost
 rounds to zero or low single-digit cents per month.
 
+### $connect authorizer and shared secret
+
+The `$connect` WebSocket route is protected by a REQUEST authorizer Lambda
+(`lambda/authorizer/index.ts`). When a client upgrades to WebSocket it must
+supply `?token=<secret>` in the URL. The authorizer compares the token against
+a value stored in AWS Secrets Manager.
+
+**Secret location:** Secrets Manager, name `tictactoe/connect-secret`
+
+**How it works:**
+- CDK auto-generates a 32-character alphanumeric secret on first deploy —
+  the value never appears in source code or the CloudFormation template
+- Run `./deploy.sh` from the project root to deploy and print both
+  `VITE_SIGNALING_URL` and `VITE_CONNECT_SECRET` for `client/.env.local`
+- The authorizer Lambda reads `SECRET_ARN` from its environment variable (the
+  ARN is non-sensitive), fetches the secret value at first invocation, and
+  caches it in module scope — warm invocations skip the Secrets Manager call
+- The client embeds the matching value in the JS bundle via `VITE_CONNECT_SECRET`
+  in `client/.env.local` (set at build time, never shown in the UI)
+
+**Rotation:** Update the value in Secrets Manager. The Lambda picks it up on
+its next cold start. Also update `client/.env.local` and rebuild/redeploy the
+frontend so both sides stay in sync.
+
+This is not strong authentication — it is a lightweight barrier against casual
+abuse of the open API Gateway endpoint.
+
 ---
 
 ## WebRTC / client-side
@@ -210,7 +237,7 @@ VITE_SIGNALING_URL=    # API Gateway WebSocket endpoint URL
 VITE_TURN_URL=         # TURN server URL
 VITE_TURN_USERNAME=    # TURN credentials
 VITE_TURN_CREDENTIAL=  # TURN credentials
-VITE_CONNECT_SECRET=   # Must match CONNECT_SECRET passed to cdk deploy
+VITE_CONNECT_SECRET=   # Must match the value in Secrets Manager under 'tictactoe/connect-secret'
 ```
 
 ---
@@ -230,22 +257,12 @@ VITE_CONNECT_SECRET=   # Must match CONNECT_SECRET passed to cdk deploy
 - `aws-cdk-lib/aws-dynamodb` — single table
 - `aws-cdk-lib/aws-iam` — least-privilege policies per Lambda
 
-### Environment variables (stack)
-
-```
-CONNECT_SECRET=   # Shared secret for the $connect authorizer — pass at deploy time
-```
-
-The secret is embedded in the Lambda authorizer at synth time. It must match
-`VITE_CONNECT_SECRET` in the client build. It is not strong authentication —
-just a barrier against casual endpoint abuse.
-
 ### Deployment
 
 ```bash
 cd infra
 npm run build
-CONNECT_SECRET=yourvalue npx cdk deploy
+npx cdk deploy
 ```
 
 ### Useful CDK commands

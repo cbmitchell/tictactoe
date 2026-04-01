@@ -29,8 +29,17 @@ export default function Lobby({
   onCancel,
 }: LobbyProps) {
   const [mode, setMode] = useState<'choose' | 'join'>('choose');
+  const [copied, setCopied] = useState(false);
   const [codeInput, setCodeInput] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
+
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}${window.location.pathname}?code=${inviteCode}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   const handleCancel = () => {
     setMode('choose');
@@ -146,6 +155,12 @@ export default function Lobby({
               {inviteCode}
             </span>
           </div>
+          <button
+            onClick={handleCopyLink}
+            className="w-full py-2.5 px-4 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold text-sm transition-colors"
+          >
+            {copied ? 'Copied!' : 'Copy invite link'}
+          </button>
           <p className="text-sm text-gray-400 dark:text-gray-500 animate-pulse">
             Waiting for opponent to join…
           </p>

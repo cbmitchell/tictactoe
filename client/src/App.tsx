@@ -21,10 +21,13 @@ import GameStatus from './components/GameStatus';
 
 type AppView = 'lobby' | 'signaling' | 'playing' | 'ended';
 
+const params = new URLSearchParams(window.location.search);
+const URL_INVITE_CODE = params.get('code')?.toUpperCase() ?? null;
+
 export default function App() {
   const { isDark, toggle: toggleDark } = useDarkMode();
   const [view, setView] = useState<AppView>('lobby');
-  const [role, setRole] = useState<Role>('host');
+  const [role, setRole] = useState<Role>(URL_INVITE_CODE ? 'guest' : 'host');
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [opponentDisconnected, setOpponentDisconnected] = useState(false);
 
@@ -165,7 +168,7 @@ export default function App() {
     [signaling]
   );
 
-  const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(null);
+  const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(URL_INVITE_CODE);
 
   useEffect(() => {
     if (
@@ -175,8 +178,19 @@ export default function App() {
     ) {
       signaling.sendJoinGame(pendingJoinCode);
       setPendingJoinCode(null);
+      if (window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     }
   }, [signaling.status, role, pendingJoinCode, signaling.sendJoinGame]);
+
+  // Auto-connect when arriving via an invite link
+  useEffect(() => {
+    if (URL_INVITE_CODE) {
+      signaling.connect();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handlePlayAgain = useCallback(() => {
     setOpponentDisconnected(false);

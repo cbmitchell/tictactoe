@@ -33,9 +33,9 @@ async function fetchIceServers(): Promise<RTCIceServer[]> {
   try {
     const res = await fetch(TURN_CREDENTIALS_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const { iceServers } = await res.json() as { iceServers: RTCIceServer[] };
-    console.log('rtc: TURN credentials fetched', { count: iceServers.length });
-    return [...stun, ...iceServers];
+    const { iceServers } = await res.json() as { iceServers: RTCIceServer };
+    console.log('rtc: TURN credentials fetched', { urls: (iceServers.urls as string[]).length });
+    return [...stun, iceServers];
   } catch (err) {
     console.warn('rtc: failed to fetch TURN credentials, falling back to STUN only', err);
     return stun;

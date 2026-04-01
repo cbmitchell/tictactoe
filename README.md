@@ -64,32 +64,59 @@ cd ../client
 npm install
 ```
 
-### 2. Deploy the signaling backend
+### 2. One-time GitHub setup
+
+Before the first deploy, configure the following in your GitHub repository
+(**Settings → Secrets and variables → Actions → Variables**):
+
+| Variable | Value |
+|---|---|
+| `AWS_ACCOUNT_ID` | Your 12-digit AWS account ID |
+| `AWS_REGION` | Region you're deploying to (e.g. `us-east-1`) |
+
+Then enable GitHub Pages: **Settings → Pages → Source → GitHub Actions**.
+
+### 3. Initial CDK deploy (creates the IAM role)
+
+The GitHub Actions IAM role is created by CDK itself, so the first deploy must
+be run locally. Set `GITHUB_ORG` and `GITHUB_REPO` so the role is scoped to
+your repository:
 
 ```bash
-./deploy.sh
+GITHUB_ORG=your-username GITHUB_REPO=tictactoe ./deploy.sh
 ```
 
-This deploys the CDK stack and prints the values you need for `client/.env.local`.
-CDK auto-generates the connect secret in Secrets Manager on first deploy — you
-don't need to create it manually.
+After this succeeds, all future deploys run automatically on push to `main`.
 
-### 3. Configure the client
+### 4. Configure client/.env.local (local development only)
 
 ```bash
 cd client
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and set the values printed by `deploy.sh`:
-- `VITE_SIGNALING_URL` — the WebSocket URL from the CDK output
-- `VITE_CONNECT_SECRET` — the auto-generated secret value
+Populate `.env.local` with the values printed by `deploy.sh` (or retrieve them
+at any time with the AWS CLI):
+
+```bash
+# WebSocket URL
+aws cloudformation describe-stacks \
+  --stack-name TictactoeSignalingStack \
+  --query "Stacks[0].Outputs[?OutputKey=='WebSocketUrl'].OutputValue" \
+  --output text
+
+# Connect secret
+aws secretsmanager get-secret-value \
+  --secret-id tictactoe/connect-secret \
+  --query SecretString \
+  --output text
+```
 
 Optionally configure TURN server credentials (see `.env.example`). Without
 them, the app falls back to STUN only, which works for most home network
 connections.
 
-### 4. Run the client locally
+### 5. Run the client locally
 
 ```bash
 cd client
@@ -98,16 +125,12 @@ npm run dev
 
 ---
 
-## Deployment (client)
+## Deployment
 
-The client is a standard Vite SPA — build it and host the `dist/` folder
-anywhere that serves static files (S3 + CloudFront, Netlify, Vercel, etc.).
+Push to `main` — the GitHub Actions workflow handles everything automatically:
+infra deployment, secret retrieval, frontend build, and GitHub Pages deployment.
 
-```bash
-cd client
-npm run build
-# dist/ is ready to deploy
-```
+The frontend is served at `https://<your-username>.github.io/tictactoe/`.
 
 ---
 

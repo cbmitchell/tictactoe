@@ -7,6 +7,7 @@ cdk.out/
 
 # CDK
 infra/dist/
+cdk-outputs.json
 
 # Environment variables — never commit these
 .env

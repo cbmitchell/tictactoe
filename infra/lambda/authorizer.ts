@@ -15,7 +15,6 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
-import { WsEvent } from './shared';
 
 const client = new SecretsManagerClient({});
 const SECRET_ARN = process.env.SECRET_ARN!;
@@ -32,10 +31,26 @@ async function getSecret(): Promise<string> {
   return cachedSecret;
 }
 
-export const handler = async (
-  event: Pick<WsEvent, never> & { queryStringParameters?: Record<string, string> | null }
-): Promise<{ isAuthorized: boolean }> => {
+// WebSocket authorizers must return an IAM policy document — the simple
+// { isAuthorized: bool } response format is HTTP API only.
+export const handler = async (event: {
+  methodArn: string;
+  queryStringParameters?: Record<string, string> | null;
+}): Promise<{
+  principalId: string;
+  policyDocument: {
+    Version: string;
+    Statement: { Action: string; Effect: string; Resource: string }[];
+  };
+}> => {
   const secret = await getSecret();
   const token = event.queryStringParameters?.token ?? '';
-  return { isAuthorized: secret !== '' && token === secret };
+  const effect = secret !== '' && token === secret ? 'Allow' : 'Deny';
+  return {
+    principalId: 'client',
+    policyDocument: {
+      Version: '2012-10-17',
+      Statement: [{ Action: 'execute-api:Invoke', Effect: effect, Resource: event.methodArn }],
+    },
+  };
 };

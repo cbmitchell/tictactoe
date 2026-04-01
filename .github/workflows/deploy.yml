@@ -1,0 +1,63 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write   # required for OIDC credential federation
+  contents: write   # required for GitHub Pages deployment
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/tictactoe-github-actions
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Install infra dependencies
+        run: cd infra && npm ci
+
+      - name: Deploy CDK stack
+        run: cd infra && npx cdk deploy --require-approval never --outputs-file ../cdk-outputs.json
+
+      - name: Read WebSocket URL from CDK outputs
+        id: cdk
+        run: |
+          SIGNALING_URL=$(python3 -c "import sys,json; print(json.load(open('cdk-outputs.json'))['TictactoeSignalingStack']['WebSocketUrl'])")
+          echo "signaling_url=${SIGNALING_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Retrieve connect secret from Secrets Manager
+        id: secret
+        run: |
+          echo "connect_secret=$(aws secretsmanager get-secret-value \
+            --secret-id tictactoe/connect-secret \
+            --query SecretString \
+            --output text)" >> "$GITHUB_OUTPUT"
+
+      - name: Install client dependencies
+        run: cd client && npm ci
+
+      - name: Build client
+        env:
+          VITE_SIGNALING_URL: ${{ steps.cdk.outputs.signaling_url }}
+          VITE_CONNECT_SECRET: ${{ steps.secret.outputs.connect_secret }}
+        run: cd client && npm run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: client/dist/
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4

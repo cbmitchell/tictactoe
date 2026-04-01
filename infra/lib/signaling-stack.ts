@@ -209,7 +209,8 @@ export class SignalingStack extends cdk.Stack {
       identitySource: ['route.request.querystring.token'],
       name: 'ConnectAuthorizer',
       authorizerUri: `arn:aws:apigateway:${this.region}:lambda:path/2015-03-31/functions/${authorizerFn.functionArn}/invocations`,
-      enableSimpleResponses: true,
+      // enableSimpleResponses is HTTP API only — WebSocket authorizers must
+      // return a full IAM policy document (handled in the Lambda handler).
     });
 
     // Allow API Gateway to invoke the authorizer Lambda
@@ -245,6 +246,62 @@ export class SignalingStack extends cdk.Stack {
     signalFn.addToRolePolicy(manageConnectionsPolicy);
 
     // -------------------------------------------------------------------------
+    // GitHub Actions IAM role — OIDC federation, no static credentials
+    //
+    // Set GITHUB_ORG and GITHUB_REPO when running cdk deploy locally so the
+    // role is scoped to the correct repository:
+    //   GITHUB_ORG=your-username GITHUB_REPO=tictactoe npx cdk deploy
+    // -------------------------------------------------------------------------
+    const githubOrg = process.env.GITHUB_ORG ?? '';
+    const githubRepo = process.env.GITHUB_REPO ?? '';
+
+    const githubActionsRole = new iam.Role(this, 'GitHubActionsRole', {
+      roleName: 'tictactoe-github-actions',
+      description: 'Assumed by GitHub Actions via OIDC to deploy infra and build the frontend',
+      assumedBy: new iam.WebIdentityPrincipal(
+        `arn:aws:iam::${this.account}:oidc-provider/token.actions.githubusercontent.com`,
+        {
+          StringEquals: {
+            'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
+            'token.actions.githubusercontent.com:sub': `repo:${githubOrg}/${githubRepo}:ref:refs/heads/main`,
+          },
+        }
+      ),
+    });
+
+    // CDK deploy permissions — CDK assumes its own bootstrap execution roles
+    // internally; granting sts:AssumeRole on cdk-* is the standard pattern.
+    githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['sts:AssumeRole'],
+      resources: [`arn:aws:iam::${this.account}:role/cdk-*`],
+    }));
+    githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['cloudformation:*'],
+      resources: ['*'],
+    }));
+    githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['ssm:GetParameter'],
+      resources: [`arn:aws:ssm:*:${this.account}:parameter/cdk-bootstrap/*`],
+    }));
+    githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['iam:PassRole'],
+      resources: [`arn:aws:iam::${this.account}:role/cdk-*`],
+    }));
+    githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket', 's3:DeleteObject',
+                's3:GetBucketLocation', 's3:GetEncryptionConfiguration'],
+      resources: ['arn:aws:s3:::cdk-*'],
+    }));
+    githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['ecr:GetAuthorizationToken', 'ecr:BatchCheckLayerAvailability',
+                'ecr:GetDownloadUrlForLayer', 'ecr:BatchGetImage'],
+      resources: ['*'],
+    }));
+
+    // Allow the pipeline to read the connect secret to inject into the frontend build
+    connectSecret.grantRead(githubActionsRole);
+
+    // -------------------------------------------------------------------------
     // Outputs — printed after cdk deploy, used to configure the client
     // -------------------------------------------------------------------------
     new cdk.CfnOutput(this, 'WebSocketUrl', {
@@ -256,6 +313,11 @@ export class SignalingStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'TableName', {
       value: table.tableName,
       description: 'DynamoDB table name',
+    });
+
+    new cdk.CfnOutput(this, 'GitHubActionsRoleArn', {
+      value: githubActionsRole.roleArn,
+      description: 'IAM role assumed by GitHub Actions via OIDC',
     });
   }
 }

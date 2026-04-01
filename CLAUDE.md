@@ -275,6 +275,54 @@ npx cdk destroy   # tear down all resources
 
 ---
 
+## CI/CD
+
+### Pipeline
+
+`.github/workflows/deploy.yml` triggers on every push to `main`. It:
+
+1. Assumes the `tictactoe-github-actions` IAM role via OIDC — no static AWS
+   credentials are stored in GitHub
+2. Deploys (or updates) the CDK stack
+3. Reads `VITE_SIGNALING_URL` from the CloudFormation outputs JSON
+4. Fetches `VITE_CONNECT_SECRET` from Secrets Manager via the AWS CLI —
+   the value is written directly to `$GITHUB_OUTPUT` and never logged
+5. Builds the React frontend with both values injected as env vars
+6. Deploys the built `client/dist/` to GitHub Pages
+
+### GitHub repository variables
+
+Two non-sensitive values must be set under **Settings → Secrets and variables →
+Actions → Variables** (not secrets):
+
+| Variable | Purpose |
+|---|---|
+| `AWS_ACCOUNT_ID` | Used to construct the OIDC role ARN |
+| `AWS_REGION` | AWS region for credentials and CLI commands |
+
+### GitHub Actions IAM role
+
+The role (`tictactoe-github-actions`) is created by CDK and output as
+`GitHubActionsRoleArn` after deploy. It uses OIDC federation — trust is
+restricted to `repo:<org>/<repo>:ref:refs/heads/main` via a `StringEquals`
+condition, so only the main branch of the configured repository can assume it.
+
+`GITHUB_ORG` and `GITHUB_REPO` must be set as environment variables when
+running `cdk deploy` locally if the role needs to be created or updated:
+
+```bash
+GITHUB_ORG=your-username GITHUB_REPO=tictactoe npx cdk deploy
+```
+
+### GitHub Pages
+
+The frontend is served at `https://<username>.github.io/tictactoe/`. The
+`base: '/tictactoe/'` in `client/vite.config.ts` is required — without it
+Vite emits absolute asset paths that resolve correctly on a root domain but
+produce 404s on a subdirectory path.
+
+---
+
 ## Project structure
 
 ```

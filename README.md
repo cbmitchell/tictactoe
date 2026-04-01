@@ -134,8 +134,16 @@ npm run dev
 
 ## Deployment
 
-Push to `main` — the GitHub Actions workflow handles everything automatically:
-infra deployment, secret retrieval, frontend build, and GitHub Pages deployment.
+Two workflows handle deployment automatically:
+
+| What you push | What runs |
+|---|---|
+| Changes under `infra/` | `deploy-infra.yml` deploys the CDK stack, then triggers a frontend redeploy |
+| Changes under `client/` | `deploy-frontend.yml` builds and deploys the frontend |
+| A PR touching `infra/` | `deploy-infra.yml` runs `cdk diff` — no deploy |
+
+The frontend redeploy after infra changes ensures it always picks up the latest
+WebSocket URL and secret without a separate manual push.
 
 The frontend is served at `https://<your-username>.github.io/tictactoe/`.
 

@@ -1,0 +1,58 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/**'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    outputs:
+      signaling_url: ${{ steps.outputs.outputs.signaling_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install CDK dependencies
+        working-directory: infra
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: CDK Diff
+        if: github.event_name == 'pull_request'
+        working-directory: infra
+        run: npx cdk diff
+
+      - name: CDK Deploy
+        if: github.event_name == 'push'
+        working-directory: infra
+        run: npx cdk deploy --require-approval never
+
+      - name: Capture stack outputs
+        id: outputs
+        if: github.event_name == 'push'
+        run: |
+          SIGNALING_URL=$(aws cloudformation describe-stacks \
+            --stack-name TictactoeSignalingStack \
+            --query "Stacks[0].Outputs[?OutputKey=='WebSocketUrl'].OutputValue" \
+            --output text)
+          echo "signaling_url=${SIGNALING_URL}" >> $GITHUB_OUTPUT

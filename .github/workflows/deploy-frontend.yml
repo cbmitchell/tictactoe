@@ -1,12 +1,19 @@
-name: Deploy
+name: Deploy Frontend
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'client/**'
+  workflow_run:
+    workflows: [Deploy Infrastructure]
+    branches: [main]
+    types: [completed]
 
 permissions:
-  id-token: write   # required for OIDC credential federation
-  contents: write   # required for GitHub Pages deployment
+  id-token: write
+  contents: read
+  pages: write
 
 jobs:
   deploy:
@@ -17,42 +24,42 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: 22
 
-      - name: Configure AWS credentials (OIDC)
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Install infra dependencies
-        run: cd infra && npm ci
-
-      - name: Deploy CDK stack
-        run: cd infra && npx cdk deploy --require-approval never --outputs-file ../cdk-outputs.json
-
-      - name: Read WebSocket URL from CDK outputs
+      - name: Retrieve WebSocket URL from CloudFormation
         id: cdk
         run: |
-          SIGNALING_URL=$(python3 -c "import sys,json; print(json.load(open('cdk-outputs.json'))['TictactoeSignalingStack']['WebSocketUrl'])")
-          echo "signaling_url=${SIGNALING_URL}" >> "$GITHUB_OUTPUT"
+          SIGNALING_URL=$(aws cloudformation describe-stacks \
+            --stack-name TictactoeSignalingStack \
+            --query "Stacks[0].Outputs[?OutputKey=='WebSocketUrl'].OutputValue" \
+            --output text)
+          echo "signaling_url=${SIGNALING_URL}" >> $GITHUB_OUTPUT
 
       - name: Retrieve connect secret from Secrets Manager
         id: secret
         run: |
-          echo "connect_secret=$(aws secretsmanager get-secret-value \
+          SECRET=$(aws secretsmanager get-secret-value \
             --secret-id tictactoe/connect-secret \
             --query SecretString \
-            --output text)" >> "$GITHUB_OUTPUT"
+            --output text)
+          echo "connect_secret=${SECRET}" >> $GITHUB_OUTPUT
 
       - name: Install client dependencies
-        run: cd client && npm ci
+        working-directory: client
+        run: npm ci
 
       - name: Build client
+        working-directory: client
         env:
           VITE_SIGNALING_URL: ${{ steps.cdk.outputs.signaling_url }}
           VITE_CONNECT_SECRET: ${{ steps.secret.outputs.connect_secret }}
-        run: cd client && npm run build
+        run: npm run build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

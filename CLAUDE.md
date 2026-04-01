@@ -277,18 +277,23 @@ npx cdk destroy   # tear down all resources
 
 ## CI/CD
 
-### Pipeline
+### Workflows
 
-`.github/workflows/deploy.yml` triggers on every push to `main`. It:
+**`deploy-infra.yml`** — triggers on changes to `infra/**`:
+- Pull requests to `main`: runs `cdk diff` and posts the planned changes
+- Pushes to `main`: runs `cdk deploy`, then captures the `WebSocketUrl` stack
+  output as a job output for potential use by dependent workflows
 
-1. Assumes the `tictactoe-github-actions` IAM role via OIDC — no static AWS
-   credentials are stored in GitHub
-2. Deploys (or updates) the CDK stack
-3. Reads `VITE_SIGNALING_URL` from the CloudFormation outputs JSON
-4. Fetches `VITE_CONNECT_SECRET` from Secrets Manager via the AWS CLI —
-   the value is written directly to `$GITHUB_OUTPUT` and never logged
-5. Builds the React frontend with both values injected as env vars
-6. Deploys the built `client/dist/` to GitHub Pages
+**`deploy-frontend.yml`** — triggers on changes to `client/**` and
+automatically after `deploy-infra.yml` completes on `main` (via
+`workflow_run`). This ensures the frontend is always rebuilt with the latest
+WebSocket URL and secret whenever infra changes. Steps: configure AWS
+credentials, retrieve `WebSocketUrl` from CloudFormation, retrieve
+`tictactoe/connect-secret` from Secrets Manager, build the client with both
+values injected as env vars, deploy to GitHub Pages.
+
+Both workflows use OIDC via `AWS_DEPLOY_ROLE_ARN` — no static AWS credentials
+are stored in GitHub.
 
 ### GitHub repository variables
 

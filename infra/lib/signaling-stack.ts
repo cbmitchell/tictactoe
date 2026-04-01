@@ -70,6 +70,16 @@ export class SignalingStack extends cdk.Stack {
     // avoids a naming conflict if you destroy and redeploy (the default RETAIN
     // policy schedules a 30-day recovery window that blocks reuse of the name).
     // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Cloudflare TURN secret — created manually in the AWS console before
+    // deploying. See README.md for setup instructions and secret format.
+    // -------------------------------------------------------------------------
+    const turnSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'CloudflareTurnSecret',
+      'tictactoe/cloudflare-turn'
+    );
+
     const connectSecret = new secretsmanager.Secret(this, 'ConnectSecret', {
       secretName: 'tictactoe/connect-secret',
       description: 'Shared token for WebSocket $connect authorizer',
@@ -143,11 +153,25 @@ export class SignalingStack extends cdk.Stack {
       description: 'Handles signal — relays WebRTC signaling payload to other peer',
     });
 
+    // turn-credentials — HTTP GET endpoint returning fresh Cloudflare TURN
+    // credentials. Called by the client before initiating a WebRTC handshake.
+    const turnCredentialsFn = new lambdaNode.NodejsFunction(this, 'TurnCredentialsFunction', {
+      ...commonLambdaProps,
+      entry: path.join(__dirname, '../lambda/turn-credentials/index.ts'),
+      functionName: 'tictactoe-turn-credentials',
+      description: 'Returns short-lived Cloudflare TURN credentials for WebRTC ICE negotiation',
+      environment: {
+        TURN_SECRET_ARN: turnSecret.secretArn,
+      },
+    });
+
+    turnSecret.grantRead(turnCredentialsFn);
+
     // -------------------------------------------------------------------------
     // CloudWatch alarms — one per Lambda, fires if any errors occur in a
     // 5-minute window. Visible in the CloudWatch Alarms console.
     // -------------------------------------------------------------------------
-    for (const fn of [connectFn, disconnectFn, createGameFn, joinGameFn, signalFn, authorizerFn]) {
+    for (const fn of [connectFn, disconnectFn, createGameFn, joinGameFn, signalFn, authorizerFn, turnCredentialsFn]) {
       fn.metricErrors({ period: cdk.Duration.minutes(5) }).createAlarm(this, `${fn.node.id}ErrorAlarm`, {
         alarmName: `tictactoe-${fn.functionName}-errors`,
         threshold: 1,
@@ -213,6 +237,28 @@ export class SignalingStack extends cdk.Stack {
       webSocketApi: api,
       stageName: 'prod',
       autoDeploy: true,
+    });
+
+    // -------------------------------------------------------------------------
+    // HTTP API — serves helper endpoints (TURN credentials)
+    // Separate from the WebSocket API; uses API Gateway HTTP API (v2).
+    // -------------------------------------------------------------------------
+    const httpApi = new apigatewayv2.HttpApi(this, 'HttpApi', {
+      apiName: 'tictactoe-http',
+      description: 'HTTP API for tictactoe helper endpoints',
+      corsPreflight: {
+        allowOrigins: ['*'],
+        allowMethods: [apigatewayv2.CorsHttpMethod.GET],
+      },
+    });
+
+    httpApi.addRoutes({
+      path: '/turn-credentials',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'TurnCredentialsIntegration',
+        turnCredentialsFn
+      ),
     });
 
     // -------------------------------------------------------------------------
@@ -335,6 +381,12 @@ export class SignalingStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'GitHubActionsRoleArn', {
       value: githubActionsRole.roleArn,
       description: 'IAM role assumed by GitHub Actions via OIDC',
+    });
+
+    new cdk.CfnOutput(this, 'TurnCredentialsUrl', {
+      value: `${httpApi.url}turn-credentials`,
+      description: 'TURN credentials endpoint — set as VITE_TURN_CREDENTIALS_URL in client/.env.local',
+      exportName: 'TicTacToeTurnCredentialsUrl',
     });
   }
 }

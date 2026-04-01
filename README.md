@@ -83,7 +83,21 @@ under **Settings → Secrets and variables → Actions**:
 
 Then enable GitHub Pages: **Settings → Pages → Source → GitHub Actions**.
 
-### 3. Initial CDK deploy (creates the IAM role)
+### 3. Create the Cloudflare TURN secret
+
+In the [Cloudflare dashboard](https://dash.cloudflare.com/), navigate to **Realtime** and create a TURN key. Copy the Key ID and generate a scoped API token with Realtime TURN write permissions.
+
+In the AWS console, go to **Secrets Manager** and create a new secret:
+- **Name:** `tictactoe/cloudflare-turn`
+- **Region:** same region as your CDK stack
+- **Value** (plain text JSON):
+  ```json
+  { "keyId": "your-key-id", "apiToken": "your-api-token" }
+  ```
+
+This secret must exist before running `cdk deploy`.
+
+### 4. Initial CDK deploy (creates the IAM role)
 
 The GitHub Actions IAM role is created by CDK itself, so the first deploy must
 be run locally. Set `GITHUB_ORG` and `GITHUB_REPO` so the role is scoped to
@@ -95,7 +109,7 @@ GITHUB_ORG=your-username GITHUB_REPO=tictactoe ./deploy.sh
 
 After this succeeds, all future deploys run automatically on push to `main`.
 
-### 4. Configure client/.env.local (local development only)
+### 5. Configure client/.env.local (local development only)
 
 ```bash
 cd client
@@ -119,11 +133,19 @@ aws secretsmanager get-secret-value \
   --output text
 ```
 
-Optionally configure TURN server credentials (see `.env.example`). Without
-them, the app falls back to STUN only, which works for most home network
-connections.
+Retrieve the TURN credentials URL from the CloudFormation output:
 
-### 5. Run the client locally
+```bash
+aws cloudformation describe-stacks \
+  --stack-name TictactoeSignalingStack \
+  --query "Stacks[0].Outputs[?OutputKey=='TurnCredentialsUrl'].OutputValue" \
+  --output text
+```
+
+Set `VITE_TURN_CREDENTIALS_URL` in `.env.local` to this value. Without it the
+app falls back to STUN only, which fails when one peer is on mobile data.
+
+### 6. Run the client locally
 
 ```bash
 cd client

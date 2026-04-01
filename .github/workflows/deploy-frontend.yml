@@ -33,7 +33,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Retrieve WebSocket URL from CloudFormation
+      - name: Retrieve CloudFormation outputs
         id: cdk
         run: |
           SIGNALING_URL=$(aws cloudformation describe-stacks \
@@ -41,6 +41,12 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='WebSocketUrl'].OutputValue" \
             --output text)
           echo "signaling_url=${SIGNALING_URL}" >> $GITHUB_OUTPUT
+
+          TURN_CREDENTIALS_URL=$(aws cloudformation describe-stacks \
+            --stack-name TictactoeSignalingStack \
+            --query "Stacks[0].Outputs[?OutputKey=='TurnCredentialsUrl'].OutputValue" \
+            --output text)
+          echo "turn_credentials_url=${TURN_CREDENTIALS_URL}" >> $GITHUB_OUTPUT
 
       - name: Retrieve connect secret from Secrets Manager
         id: secret
@@ -60,6 +66,7 @@ jobs:
         env:
           VITE_SIGNALING_URL: ${{ steps.cdk.outputs.signaling_url }}
           VITE_CONNECT_SECRET: ${{ steps.secret.outputs.connect_secret }}
+          VITE_TURN_CREDENTIALS_URL: ${{ steps.cdk.outputs.turn_credentials_url }}
         run: npm run build
 
       - name: Upload Pages artifact

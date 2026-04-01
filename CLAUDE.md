@@ -168,12 +168,32 @@ abuse of the open API Gateway endpoint.
 
 ### STUN/TURN
 
-- Use a free-tier STUN/TURN service (Metered.ca or Twilio NTS) for NAT
-  traversal
-- STUN is used first (free, just helps peers discover their public IP)
-- TURN is the relay fallback when direct connection fails — expected to be used
-  by a small minority of connections
-- TURN credentials should be stored in environment variables, not hardcoded
+- **TURN provider: Cloudflare Realtime** — static/long-lived credentials are
+  not supported; every `RTCPeerConnection` must be initialised with fresh
+  credentials fetched from the `turn-credentials` Lambda immediately before
+  the WebRTC handshake begins
+- STUN (`stun.l.google.com:19302`) is always included as the first ICE server;
+  TURN is appended when credentials are available
+- TURN is the relay fallback for peers behind carrier-grade NAT (e.g. mobile
+  data) where direct P2P connection fails
+- If the `turn-credentials` fetch fails, `useWebRTC` falls back to STUN only
+  and logs a warning — most connections on home WiFi will still succeed
+
+### TURN credentials infrastructure
+
+- **Secret:** `tictactoe/cloudflare-turn` in Secrets Manager — created manually
+  in the AWS console before deploying (not managed by CDK). Format:
+  `{ "keyId": "...", "apiToken": "..." }`. Key ID and API token come from the
+  Cloudflare dashboard under Realtime → TURN keys.
+- **Lambda:** `tictactoe-turn-credentials` — HTTP GET endpoint that caches the
+  Cloudflare API credentials in module scope (warm invocations skip Secrets
+  Manager) but always calls Cloudflare's credential API on each request since
+  the returned TURN credentials are short-lived (1h TTL)
+- **HTTP API:** separate API Gateway HTTP API (`tictactoe-http`), distinct from
+  the WebSocket signaling API. The `turn-credentials` route is the only route.
+- **Client env var:** `VITE_TURN_CREDENTIALS_URL` — set from the
+  `TurnCredentialsUrl` CloudFormation output. Populated automatically by the
+  GitHub Actions pipeline; set manually in `client/.env.local` for local dev.
 
 ### Client connection flow
 
@@ -233,11 +253,9 @@ abuse of the open API Gateway endpoint.
 ### Environment variables (client)
 
 ```
-VITE_SIGNALING_URL=    # API Gateway WebSocket endpoint URL
-VITE_TURN_URL=         # TURN server URL
-VITE_TURN_USERNAME=    # TURN credentials
-VITE_TURN_CREDENTIAL=  # TURN credentials
-VITE_CONNECT_SECRET=   # Must match the value in Secrets Manager under 'tictactoe/connect-secret'
+VITE_SIGNALING_URL=          # API Gateway WebSocket endpoint URL
+VITE_TURN_CREDENTIALS_URL=   # TURN credentials endpoint (from TurnCredentialsUrl CFn output)
+VITE_CONNECT_SECRET=         # Must match the value in Secrets Manager under 'tictactoe/connect-secret'
 ```
 
 ---
@@ -378,7 +396,6 @@ tictactoe/
 
 These are open questions to resolve during implementation:
 
-- Specific STUN/TURN provider (Metered.ca vs Twilio NTS — both have free tiers)
 - Visual design / styling approach for the frontend
 - Whether to add any persistence (e.g. game history) — current plan is no
 - Custom domain setup (optional — API Gateway provides a default URL)

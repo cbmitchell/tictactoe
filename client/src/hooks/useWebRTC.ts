@@ -22,22 +22,24 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { DataChannelMessage, IncomingSignalMessage } from '../lib/signaling';
 import { UseSignalingReturn } from './useSignaling';
 
-const TURN_URL = import.meta.env.VITE_TURN_URL as string | undefined;
-const TURN_USERNAME = import.meta.env.VITE_TURN_USERNAME as string | undefined;
-const TURN_CREDENTIAL = import.meta.env.VITE_TURN_CREDENTIAL as string | undefined;
+const TURN_CREDENTIALS_URL =
+  import.meta.env.VITE_TURN_CREDENTIALS_URL as string | undefined;
 
-const ICE_SERVERS: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  ...(TURN_URL
-    ? [
-        {
-          urls: TURN_URL,
-          username: TURN_USERNAME,
-          credential: TURN_CREDENTIAL,
-        },
-      ]
-    : []),
-];
+async function fetchIceServers(): Promise<RTCIceServer[]> {
+  const stun: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+
+  if (!TURN_CREDENTIALS_URL) return stun;
+
+  try {
+    const res = await fetch(TURN_CREDENTIALS_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const turnServers = await res.json() as RTCIceServer[];
+    return [...stun, ...turnServers];
+  } catch (err) {
+    console.warn('rtc: failed to fetch TURN credentials, falling back to STUN only', err);
+    return stun;
+  }
+}
 
 export type RTCStatus =
   | 'idle'
@@ -55,7 +57,7 @@ export interface UseWebRTCProps {
 export interface UseWebRTCReturn {
   rtcStatus: RTCStatus;
   initAsHost: () => Promise<void>;
-  initAsGuest: () => void;
+  initAsGuest: () => Promise<void>;
   sendData: (msg: DataChannelMessage) => void;
   close: () => void;
 }
@@ -76,8 +78,8 @@ export function useWebRTC({
     onDataMessageRef.current = onDataMessage;
   }, [onDataMessage]);
 
-  const createPeerConnection = useCallback((): RTCPeerConnection => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const createPeerConnection = useCallback((iceServers: RTCIceServer[]): RTCPeerConnection => {
+    const pc = new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
 
     pc.onicecandidate = ({ candidate }) => {
@@ -164,7 +166,8 @@ export function useWebRTC({
   // Host: create offer and data channel
   const initAsHost = useCallback(async () => {
     console.log('rtc: initAsHost called');
-    const pc = createPeerConnection();
+    const iceServers = await fetchIceServers();
+    const pc = createPeerConnection(iceServers);
 
     // Host creates the data channel
     const channel = pc.createDataChannel('game', { ordered: true });
@@ -178,9 +181,10 @@ export function useWebRTC({
   }, [createPeerConnection, attachDataChannel, sendSignal]);
 
   // Guest: wait for the data channel to be offered by the host
-  const initAsGuest = useCallback(() => {
+  const initAsGuest = useCallback(async () => {
     console.log('rtc: initAsGuest called');
-    const pc = createPeerConnection();
+    const iceServers = await fetchIceServers();
+    const pc = createPeerConnection(iceServers);
 
     // Guest receives the data channel created by the host
     pc.ondatachannel = ({ channel }) => {

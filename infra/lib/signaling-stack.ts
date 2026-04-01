@@ -2,6 +2,8 @@ import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -48,6 +50,7 @@ export class SignalingStack extends cdk.Stack {
         // esbuild target — matches the Lambda Node runtime
         target: 'node22',
       },
+      logRetention: logs.RetentionDays.ONE_MONTH,
     };
 
     // -------------------------------------------------------------------------
@@ -139,6 +142,20 @@ export class SignalingStack extends cdk.Stack {
       functionName: 'tictactoe-signal',
       description: 'Handles signal — relays WebRTC signaling payload to other peer',
     });
+
+    // -------------------------------------------------------------------------
+    // CloudWatch alarms — one per Lambda, fires if any errors occur in a
+    // 5-minute window. Visible in the CloudWatch Alarms console.
+    // -------------------------------------------------------------------------
+    for (const fn of [connectFn, disconnectFn, createGameFn, joinGameFn, signalFn, authorizerFn]) {
+      fn.metricErrors({ period: cdk.Duration.minutes(5) }).createAlarm(this, `${fn.node.id}ErrorAlarm`, {
+        alarmName: `tictactoe-${fn.functionName}-errors`,
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+    }
 
     // -------------------------------------------------------------------------
     // DynamoDB permissions — least privilege per function

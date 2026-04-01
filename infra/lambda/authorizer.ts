@@ -15,6 +15,7 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
+import { createLogger } from './lib/logger';
 
 const client = new SecretsManagerClient({});
 const SECRET_ARN = process.env.SECRET_ARN!;
@@ -43,9 +44,21 @@ export const handler = async (event: {
     Statement: { Action: string; Effect: string; Resource: string }[];
   };
 }> => {
-  const secret = await getSecret();
+  const logger = createLogger();
+
+  let secret: string;
+  try {
+    secret = await getSecret();
+  } catch (err) {
+    logger.error('authorizer: failed to fetch secret from Secrets Manager', err);
+    throw err;
+  }
+
   const token = event.queryStringParameters?.token ?? '';
   const effect = secret !== '' && token === secret ? 'Allow' : 'Deny';
+
+  logger.info('authorizer result', { effect, cachedSecret: cachedSecret !== null });
+
   return {
     principalId: 'client',
     policyDocument: {

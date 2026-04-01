@@ -82,6 +82,7 @@ export function useWebRTC({
 
     pc.onicecandidate = ({ candidate }) => {
       if (candidate) {
+        console.log('rtc: ICE candidate', { protocol: candidate.protocol, type: candidate.type });
         sendSignal(candidate.toJSON());
       }
     };
@@ -141,9 +142,11 @@ export function useWebRTC({
           .then(async () => {
             if (payload.type === 'offer') {
               // Guest receives offer — create and send answer
+              console.log('rtc: offer received, creating answer');
               const answer = await pc.createAnswer();
               await pc.setLocalDescription(answer);
               sendSignal(answer);
+              console.log('rtc: answer created and sent');
             }
           })
           .catch((err) => console.error('rtc: setRemoteDescription failed', err));
@@ -160,19 +163,23 @@ export function useWebRTC({
 
   // Host: create offer and data channel
   const initAsHost = useCallback(async () => {
+    console.log('rtc: initAsHost called');
     const pc = createPeerConnection();
 
     // Host creates the data channel
     const channel = pc.createDataChannel('game', { ordered: true });
     attachDataChannel(channel);
 
+    console.log('rtc: creating offer');
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     sendSignal(offer);
+    console.log('rtc: offer created and sent');
   }, [createPeerConnection, attachDataChannel, sendSignal]);
 
   // Guest: wait for the data channel to be offered by the host
   const initAsGuest = useCallback(() => {
+    console.log('rtc: initAsGuest called');
     const pc = createPeerConnection();
 
     // Guest receives the data channel created by the host

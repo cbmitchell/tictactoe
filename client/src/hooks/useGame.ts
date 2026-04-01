@@ -84,6 +84,15 @@ export function useGame({
   const isOver = winner !== null || isDrawn;
   const isMyTurn = currentTurn === mySymbol && !isOver;
 
+  // Log win/draw when they are first detected
+  useEffect(() => {
+    if (winner) console.log('game: winner detected', { winner, winningLine });
+  }, [winner, winningLine]);
+
+  useEffect(() => {
+    if (isDrawn) console.log('game: draw detected');
+  }, [isDrawn]);
+
   // Apply a move locally and update state
   const applyMoveToState = useCallback(
     (square: number, player: Player, currentBoard: Board) => {
@@ -102,12 +111,21 @@ export function useGame({
       const currentBoard = boardRef.current;
       const turn = currentTurnRef.current;
 
+      console.log('game: move attempted', { square, isMyTurn: turn === mySymbol });
+
       // Only allow moves on the player's own turn
-      if (turn !== mySymbol) return;
-      if (!isValidMove(currentBoard, square)) return;
+      if (turn !== mySymbol) {
+        console.warn('game: move rejected — not my turn', { square, mySymbol, currentTurn: turn });
+        return;
+      }
+      if (!isValidMove(currentBoard, square)) {
+        console.warn('game: move rejected — square occupied or game over', { square });
+        return;
+      }
 
       // Apply locally
       applyMoveToState(square, mySymbol, currentBoard);
+      console.log('game: move applied', { square, player: mySymbol });
 
       // Send to peer
       sendData({ type: 'move', square });
@@ -125,6 +143,7 @@ export function useGame({
   useEffect(() => { localWantsPlayAgainRef.current = localWantsPlayAgain; }, [localWantsPlayAgain]);
 
   const doReset = useCallback(() => {
+    console.log('game: board reset');
     setBoard(emptyBoard());
     setCurrentTurn('X');
     setLocalWantsPlayAgain(false);
@@ -137,12 +156,14 @@ export function useGame({
     const unsubscribe = onDataMessage((msg) => {
       if (msg.type === 'move') {
         const peerSymbol: Player = mySymbol === 'X' ? 'O' : 'X';
+        console.log('game: peer move received', { square: msg.square, player: peerSymbol });
         applyMoveToState(msg.square, peerSymbol, boardRef.current);
       } else if (msg.type === 'sync') {
         // Host can send a full state sync — useful if guest reconnects
         setBoard(msg.board);
         setCurrentTurn(msg.currentTurn);
       } else if (msg.type === 'play-again') {
+        console.log('game: peer wants play-again', { localAlreadyWants: localWantsPlayAgainRef.current });
         if (localWantsPlayAgainRef.current) {
           doReset();
         } else {
@@ -162,6 +183,7 @@ export function useGame({
   }, []);
 
   const requestPlayAgain = useCallback(() => {
+    console.log('game: play-again requested', { peerAlreadyWants: peerWantsPlayAgain });
     sendData({ type: 'play-again' });
     if (peerWantsPlayAgain) {
       doReset();

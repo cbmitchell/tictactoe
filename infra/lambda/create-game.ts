@@ -22,6 +22,7 @@ import {
   makeApiGwClient,
   sendToConnection,
 } from './shared';
+import { createLogger } from './lib/logger';
 
 /** Generates a random uppercase alphanumeric invite code */
 function generateCode(length = 6): string {
@@ -35,7 +36,8 @@ function generateCode(length = 6): string {
 
 export const handler = async (event: WsEvent): Promise<WsResult> => {
   const { connectionId, domainName, stage } = event.requestContext;
-  console.log('create-game', { connectionId });
+  const logger = createLogger({ connectionId });
+  logger.info('create-game');
 
   const code = generateCode();
   const ttl = ttlIn24Hours();
@@ -56,9 +58,11 @@ export const handler = async (event: WsEvent): Promise<WsResult> => {
       ttl,
     });
   } catch (err) {
-    console.error('DynamoDB write failed in create-game', err);
+    logger.error('create-game: DynamoDB write failed', err);
     return ERROR('Failed to create game session');
   }
+
+  logger.info('create-game: session created');
 
   // Send the invite code back to the host
   try {
@@ -68,7 +72,7 @@ export const handler = async (event: WsEvent): Promise<WsResult> => {
       code,
     });
   } catch (err) {
-    console.error('Failed to send game-code to host', err);
+    logger.error('create-game: failed to send game-code to host', err);
     return ERROR('Failed to send game code');
   }
 

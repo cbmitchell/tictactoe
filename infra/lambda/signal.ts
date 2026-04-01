@@ -23,9 +23,12 @@ import {
   makeApiGwClient,
   sendToConnection,
 } from './shared';
+import { createLogger } from './lib/logger';
 
 export const handler = async (event: WsEvent): Promise<WsResult> => {
   const { connectionId, domainName, stage } = event.requestContext;
+  const logger = createLogger({ connectionId });
+  logger.info('signal');
 
   // Parse the signaling payload
   let payload: unknown;
@@ -40,14 +43,14 @@ export const handler = async (event: WsEvent): Promise<WsResult> => {
   // Find which session this connection belongs to
   const connRecord = await getConnRecord(connectionId);
   if (!connRecord) {
-    console.warn('signal from unknown connection', { connectionId });
+    logger.warn('signal: from unknown connection');
     return ERROR('Connection not associated with a game session');
   }
 
   // Find the other peer's connection ID
   const codeRecord = await getCodeRecord(connRecord.code);
   if (!codeRecord) {
-    console.warn('signal: code record not found', { code: connRecord.code });
+    logger.warn('signal: code record not found', { code: connRecord.code });
     return ERROR('Game session not found');
   }
 
@@ -58,7 +61,7 @@ export const handler = async (event: WsEvent): Promise<WsResult> => {
 
   if (!targetConnectionId) {
     // Guest hasn't joined yet — host is sending a signal before peer-joined
-    console.warn('signal: other peer not connected yet', { connectionId });
+    logger.warn('signal: other peer not connected yet');
     return ERROR('Other player has not joined yet');
   }
 
@@ -70,7 +73,7 @@ export const handler = async (event: WsEvent): Promise<WsResult> => {
       payload,
     });
   } catch (err) {
-    console.error('Failed to forward signal to peer', err);
+    logger.error('signal: failed to forward to peer', err, { targetConnectionId });
     return ERROR('Failed to deliver signal to peer');
   }
 

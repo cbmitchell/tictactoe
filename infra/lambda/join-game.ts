@@ -28,10 +28,11 @@ import {
   makeApiGwClient,
   sendToConnection,
 } from './shared';
+import { createLogger } from './lib/logger';
 
 export const handler = async (event: WsEvent): Promise<WsResult> => {
   const { connectionId, domainName, stage } = event.requestContext;
-  console.log('join-game', { connectionId });
+  const logger = createLogger({ connectionId });
 
   // Parse the invite code from the message body
   let code: string;
@@ -43,6 +44,8 @@ export const handler = async (event: WsEvent): Promise<WsResult> => {
     return ERROR('Invalid join-game message — expected { action, code }');
   }
 
+  logger.info('join-game', { code });
+
   // Look up the session
   const codeRecord = await getCodeRecord(code);
   if (!codeRecord) {
@@ -51,6 +54,7 @@ export const handler = async (event: WsEvent): Promise<WsResult> => {
       action: 'error',
       message: 'Game not found. The code may be invalid or expired.',
     });
+    logger.warn('join-game: code not found', { code });
     return OK;
   }
 
@@ -61,20 +65,37 @@ export const handler = async (event: WsEvent): Promise<WsResult> => {
       action: 'error',
       message: 'Game is already full.',
     });
+    logger.warn('join-game: game already full', { code });
     return OK;
   }
 
   const ttl = ttlIn24Hours();
 
   // Pair the guest into the session
-  await setGuestOnCodeRecord(code, connectionId);
+  try {
+    await setGuestOnCodeRecord(code, connectionId);
+  } catch (err) {
+    logger.error('join-game: failed to update CODE record with guest', err, { code });
+    return ERROR('Failed to join game session');
+  }
 
   // Store reverse lookup for the guest
-  await putConnRecord({
-    pk: `CONN#${connectionId}`,
+  try {
+    await putConnRecord({
+      pk: `CONN#${connectionId}`,
+      code,
+      role: 'guest',
+      ttl,
+    });
+  } catch (err) {
+    logger.error('join-game: failed to write CONN record for guest', err);
+    return ERROR('Failed to join game session');
+  }
+
+  logger.info('join-game: peers paired', {
     code,
-    role: 'guest',
-    ttl,
+    hostConnectionId: codeRecord.hostConnectionId,
+    guestConnectionId: connectionId,
   });
 
   // Notify both peers
@@ -86,7 +107,7 @@ export const handler = async (event: WsEvent): Promise<WsResult> => {
       action: 'peer-joined',
     });
   } catch (err) {
-    console.error('Failed to notify host', err);
+    logger.error('join-game: failed to notify host', err, { hostConnectionId: codeRecord.hostConnectionId });
     return ERROR('Failed to notify host — they may have disconnected');
   }
 
@@ -96,7 +117,7 @@ export const handler = async (event: WsEvent): Promise<WsResult> => {
       action: 'waiting-for-offer',
     });
   } catch (err) {
-    console.error('Failed to notify guest', err);
+    logger.error('join-game: failed to notify guest', err);
     return ERROR('Failed to acknowledge guest connection');
   }
 

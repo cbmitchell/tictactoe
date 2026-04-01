@@ -8,9 +8,11 @@
 // rejects it before the client's onopen fires.
 
 import { WsEvent, WsResult, OK } from './shared';
+import { createLogger } from './lib/logger';
 
 export const handler = async (event: WsEvent): Promise<WsResult> => {
   const { connectionId } = event.requestContext;
-  console.log('connect', { connectionId });
+  const logger = createLogger({ connectionId });
+  logger.info('connect');
   return OK;
 };

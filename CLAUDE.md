@@ -292,13 +292,12 @@ npx cdk destroy   # tear down all resources
 
 ### GitHub repository variables
 
-Two non-sensitive values must be set under **Settings → Secrets and variables →
-Actions → Variables** (not secrets):
+Set these in **Settings → Secrets and variables → Actions**:
 
-| Variable | Purpose |
-|---|---|
-| `AWS_ACCOUNT_ID` | Used to construct the OIDC role ARN |
-| `AWS_REGION` | AWS region for credentials and CLI commands |
+| Name | Type | Purpose |
+|---|---|---|
+| `AWS_DEPLOY_ROLE_ARN` | Secret | Full ARN of the `tictactoe-github-actions` IAM role |
+| `AWS_REGION` | Variable | AWS region for credentials and CLI commands |
 
 ### GitHub Actions IAM role
 

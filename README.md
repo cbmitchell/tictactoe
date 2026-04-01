@@ -67,11 +67,18 @@ npm install
 ### 2. One-time GitHub setup
 
 Before the first deploy, configure the following in your GitHub repository
-(**Settings → Secrets and variables → Actions → Variables**):
+under **Settings → Secrets and variables → Actions**:
+
+**Secrets** (Settings → Secrets and variables → Actions → Secrets):
+
+| Secret | Value |
+|---|---|
+| `AWS_DEPLOY_ROLE_ARN` | ARN of the `tictactoe-github-actions` IAM role (output by CDK after first deploy) |
+
+**Variables** (Settings → Secrets and variables → Actions → Variables):
 
 | Variable | Value |
 |---|---|
-| `AWS_ACCOUNT_ID` | Your 12-digit AWS account ID |
 | `AWS_REGION` | Region you're deploying to (e.g. `us-east-1`) |
 
 Then enable GitHub Pages: **Settings → Pages → Source → GitHub Actions**.

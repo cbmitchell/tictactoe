@@ -196,7 +196,7 @@ export default function App() {
   // Render
   // -----------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
+    <div className="h-dvh overflow-y-auto bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
       {/* Dark mode toggle */}
       <div className="fixed top-4 right-4 z-10">
         <button
@@ -218,10 +218,12 @@ export default function App() {
         </button>
       </div>
 
-      <div className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
-        <h1 className="text-3xl font-bold tracking-tight mb-8 text-gray-800 dark:text-gray-100">
-          Tic-Tac-Toe
-        </h1>
+      <div className="flex flex-col items-center justify-center min-h-full px-4 py-4">
+        {(view === 'lobby' || view === 'signaling') && (
+          <h1 className="text-3xl font-bold tracking-tight mb-8 text-gray-800 dark:text-gray-100">
+            Tic-Tac-Toe
+          </h1>
+        )}
 
         {(view === 'lobby' || view === 'signaling') && (
           <Lobby

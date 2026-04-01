@@ -5,3 +5,12 @@
 @theme {
   --font-sans: 'Inter', system-ui, sans-serif;
 }
+
+html, body {
+  background-color: #f9fafb; /* gray-50 */
+  transition: background-color 200ms;
+}
+
+html.dark, html.dark body {
+  background-color: #030712; /* gray-950 */
+}

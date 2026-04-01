@@ -14,6 +14,14 @@ export function useDarkMode() {
       root.classList.remove('dark');
     }
     localStorage.setItem('darkMode', String(isDark));
+
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    meta.content = isDark ? '#030712' : '#f9fafb';
   }, [isDark]);
 
   const toggle = () => setIsDark((prev) => !prev);

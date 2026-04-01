@@ -19,7 +19,7 @@ const CELL_HEIGHTS = ['h-7', 'h-9', 'h-11', 'h-14'];
 // rotateX(45deg) with transformOrigin:center bottom compresses visual content
 // toward the layout bottom, leaving dead space at the top of each layer's box.
 // Negative margins pull subsequent layers up to close that gap.
-const NEGATIVE_MARGINS = [0, -40, -56, -82];
+const NEGATIVE_MARGINS = [-40, -40, -56, -82];
 
 function LayerGrid({
   layer,

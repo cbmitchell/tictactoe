@@ -81,7 +81,7 @@ export const handler = async (): Promise<{
       throw new Error(`Cloudflare API returned HTTP ${res.status}`);
     }
     const data = await res.json() as { iceServers: unknown };
-    iceServers = data.iceServers;
+    iceServers = data;
   } catch (err) {
     logger.error('turn-credentials: Cloudflare API request failed', err);
     return {

@@ -87,7 +87,7 @@ export default function Lobby({
       )}
 
       {/* Join flow — code entry */}
-      {mode === 'join' && signalingStatus === 'idle' && (
+      {mode === 'join' && (signalingStatus === 'idle' || signalingStatus === 'disconnected') && (
         <>
           <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
             Enter the 6-character invite code your opponent shared with you.

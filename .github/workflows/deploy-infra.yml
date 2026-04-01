@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - 'infra/**'
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -43,13 +44,13 @@ jobs:
         run: npx cdk diff
 
       - name: CDK Deploy
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         working-directory: infra
         run: npx cdk deploy --require-approval never
 
       - name: Capture stack outputs
         id: outputs
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
           SIGNALING_URL=$(aws cloudformation describe-stacks \
             --stack-name TictactoeSignalingStack \

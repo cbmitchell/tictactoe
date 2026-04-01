@@ -231,6 +231,7 @@ export default function App() {
             inviteCode={inviteCode}
             onCreateGame={handleCreateGame}
             onJoinGame={handleJoinGame}
+            onCancel={handleDisconnect}
           />
         )}
 

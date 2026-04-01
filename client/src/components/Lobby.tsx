@@ -18,6 +18,7 @@ interface LobbyProps {
   inviteCode: string | null;
   onCreateGame: () => void;
   onJoinGame: (code: string) => void;
+  onCancel: () => void;
 }
 
 export default function Lobby({
@@ -25,10 +26,18 @@ export default function Lobby({
   inviteCode,
   onCreateGame,
   onJoinGame,
+  onCancel,
 }: LobbyProps) {
   const [mode, setMode] = useState<'choose' | 'join'>('choose');
   const [codeInput, setCodeInput] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
+
+  const handleCancel = () => {
+    setMode('choose');
+    setCodeInput('');
+    setInputError(null);
+    onCancel();
+  };
 
   const handleJoinSubmit = () => {
     const code = codeInput.trim().toUpperCase();
@@ -115,7 +124,15 @@ export default function Lobby({
 
       {/* Connecting */}
       {isConnecting && !isWaitingForGuest && !isWaitingForHost && (
-        <p className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">Connecting…</p>
+        <div className="flex flex-col items-center gap-4 w-full">
+          <p className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">Connecting…</p>
+          <button
+            onClick={handleCancel}
+            className="w-full py-2 px-4 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-sm transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
       )}
 
       {/* Host: waiting for guest to join */}
@@ -132,14 +149,28 @@ export default function Lobby({
           <p className="text-sm text-gray-400 dark:text-gray-500 animate-pulse">
             Waiting for opponent to join…
           </p>
+          <button
+            onClick={handleCancel}
+            className="w-full py-2 px-4 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-sm transition-colors"
+          >
+            Cancel
+          </button>
         </div>
       )}
 
       {/* Guest: waiting for WebRTC handshake */}
       {isWaitingForHost && (
-        <p className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">
-          Connecting to opponent…
-        </p>
+        <div className="flex flex-col items-center gap-4 w-full">
+          <p className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">
+            Connecting to opponent…
+          </p>
+          <button
+            onClick={handleCancel}
+            className="w-full py-2 px-4 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-sm transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
       )}
 
       {/* Error state */}

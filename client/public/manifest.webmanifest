@@ -2,7 +2,7 @@
   "name": "3DTTT",
   "short_name": "3DTTT",
   "description": "3D tic-tac-toe, played peer-to-peer with a friend",
-  "start_url": "/tictactoe/",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#f9fafb",
   "theme_color": "#4f46e5",

@@ -4,6 +4,6 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [tailwindcss(), react()],
-  // Required for GitHub Pages — assets are served from /tictactoe/, not /
-  base: '/tictactoe/',
+  // Custom domain serves from root — no subdirectory base needed
+  base: '/',
 });

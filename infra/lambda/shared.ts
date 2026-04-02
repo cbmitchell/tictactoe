@@ -86,18 +86,38 @@ export async function deleteRecord(pk: string): Promise<void> {
   );
 }
 
+/**
+ * Atomically sets guestConnectionId on a CODE# record only if it is not
+ * already set. Returns true if the write succeeded (i.e. slot was free),
+ * false if the record was already full (another guest beat us to it).
+ * Throws on unexpected DynamoDB errors.
+ */
 export async function setGuestOnCodeRecord(
   code: string,
   guestConnectionId: string
-): Promise<void> {
-  await dynamo.send(
-    new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: { pk: `CODE#${code}` },
-      UpdateExpression: 'SET guestConnectionId = :g',
-      ExpressionAttributeValues: { ':g': guestConnectionId },
-    })
-  );
+): Promise<boolean> {
+  try {
+    await dynamo.send(
+      new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: { pk: `CODE#${code}` },
+        UpdateExpression: 'SET guestConnectionId = :g',
+        ConditionExpression: 'attribute_not_exists(guestConnectionId)',
+        ExpressionAttributeValues: { ':g': guestConnectionId },
+      })
+    );
+    return true;
+  } catch (err: unknown) {
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'name' in err &&
+      (err as { name: string }).name === 'ConditionalCheckFailedException'
+    ) {
+      return false;
+    }
+    throw err;
+  }
 }
 
 // -----------------------------------------------------------------------

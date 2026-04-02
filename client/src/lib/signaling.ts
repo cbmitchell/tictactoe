@@ -80,20 +80,14 @@ export type ServerMessage =
 
 export interface MoveMessage {
   type: 'move';
-  square: number; // 0–8, row-major order
-}
-
-export interface SyncMessage {
-  type: 'sync';
-  board: Board;
-  currentTurn: Player;
+  square: number; // 0–63, index formula: layer * 16 + row * 4 + col
 }
 
 export interface PlayAgainMessage {
   type: 'play-again';
 }
 
-export type DataChannelMessage = MoveMessage | SyncMessage | PlayAgainMessage;
+export type DataChannelMessage = MoveMessage | PlayAgainMessage;
 
 // -----------------------------------------------------------------------
 // Game types (used by both signaling.ts and gameLogic.ts)

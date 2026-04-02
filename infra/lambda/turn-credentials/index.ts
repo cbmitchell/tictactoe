@@ -20,6 +20,9 @@ import { createLogger } from '../lib/logger';
 
 const smClient = new SecretsManagerClient({});
 const TURN_SECRET_ARN = process.env.TURN_SECRET_ARN!;
+// Allowed origin for CORS — set to the GitHub Pages URL at deploy time.
+// Falls back to '*' only if the env var is absent (e.g. local testing).
+const CORS_ORIGIN = process.env.CORS_ORIGIN ?? '*';
 
 interface CloudflareSecret {
   keyId: string;
@@ -39,7 +42,7 @@ async function getCloudflareSecret(): Promise<CloudflareSecret> {
 }
 
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': CORS_ORIGIN,
   'Content-Type': 'application/json',
 };
 
@@ -63,8 +66,10 @@ export const handler = async (): Promise<{
     };
   }
 
-  // Fetch fresh short-lived TURN credentials from Cloudflare Realtime
-  let iceServers: unknown;
+  // Fetch fresh short-lived TURN credentials from Cloudflare Realtime.
+  // The response shape is { iceServers: RTCIceServer[] } — we return it as-is
+  // so the client can destructure it directly.
+  let credentialsResponse: unknown;
   try {
     const res = await fetch(
       `https://rtc.live.cloudflare.com/v1/turn/keys/${secret.keyId}/credentials/generate`,
@@ -80,8 +85,7 @@ export const handler = async (): Promise<{
     if (!res.ok) {
       throw new Error(`Cloudflare API returned HTTP ${res.status}`);
     }
-    const data = await res.json() as { iceServers: unknown };
-    iceServers = data;
+    credentialsResponse = await res.json();
   } catch (err) {
     logger.error('turn-credentials: Cloudflare API request failed', err);
     return {
@@ -96,6 +100,6 @@ export const handler = async (): Promise<{
   return {
     statusCode: 200,
     headers: CORS_HEADERS,
-    body: JSON.stringify(iceServers),
+    body: JSON.stringify(credentialsResponse),
   };
 };

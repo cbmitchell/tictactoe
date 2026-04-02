@@ -4,8 +4,10 @@
 // it in module scope so warm invocations skip the API call. Compares the value
 // against the `token` query string parameter on the incoming WebSocket upgrade.
 //
-// Returns { isAuthorized: bool } using API Gateway's simple response format
-// (enableSimpleResponses: true must be set on the CfnAuthorizer in the stack).
+// Returns a full IAM policy document (required for WebSocket authorizers).
+// Note: the simple { isAuthorized: bool } response format is HTTP API only —
+// WebSocket authorizers must return an IAM policy regardless of
+// enableSimpleResponses setting.
 //
 // This is a lightweight barrier against casual endpoint abuse — the matching
 // value is embedded in the client bundle via VITE_CONNECT_SECRET at build time.

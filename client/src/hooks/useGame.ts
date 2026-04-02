@@ -160,10 +160,6 @@ export function useGame({
         const peerSymbol: Player = mySymbol === 'X' ? 'O' : 'X';
         console.log('game: peer move received', { square: msg.square, player: peerSymbol });
         applyMoveToState(msg.square, peerSymbol, boardRef.current);
-      } else if (msg.type === 'sync') {
-        // Host can send a full state sync — useful if guest reconnects
-        setBoard(msg.board);
-        setCurrentTurn(msg.currentTurn);
       } else if (msg.type === 'play-again') {
         console.log('game: peer wants play-again', { localAlreadyWants: localWantsPlayAgainRef.current });
         if (localWantsPlayAgainRef.current) {

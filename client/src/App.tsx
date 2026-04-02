@@ -143,10 +143,7 @@ export default function App() {
     setRole('host');
     setOpponentDisconnected(false);
     signaling.connect();
-    // send create-game once connected
-    const unsubscribe = signaling.onMessage(() => {});
-    // Wait for connected status then send — handled reactively below
-    unsubscribe();
+    // send create-game once connected — handled reactively by the effect below
   }, [signaling]);
 
   // Send create-game once the signaling connection is open

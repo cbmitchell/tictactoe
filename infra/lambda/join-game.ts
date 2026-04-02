@@ -59,7 +59,7 @@ export const handler = async (event: WsEvent): Promise<WsResult> => {
   }
 
   if (codeRecord.guestConnectionId) {
-    // Session already has two players
+    // Session already has two players (fast path — avoids a conditional write)
     const apiGw = makeApiGwClient(domainName, stage);
     await sendToConnection(apiGw, connectionId, {
       action: 'error',
@@ -71,12 +71,25 @@ export const handler = async (event: WsEvent): Promise<WsResult> => {
 
   const ttl = ttlIn24Hours();
 
-  // Pair the guest into the session
+  // Atomically claim the guest slot. The conditional write handles the race
+  // where two guests send join-game simultaneously — only one wins.
+  let claimed: boolean;
   try {
-    await setGuestOnCodeRecord(code, connectionId);
+    claimed = await setGuestOnCodeRecord(code, connectionId);
   } catch (err) {
     logger.error('join-game: failed to update CODE record with guest', err, { code });
     return ERROR('Failed to join game session');
+  }
+
+  if (!claimed) {
+    // Another guest claimed the slot between our GetItem and UpdateItem
+    const apiGw = makeApiGwClient(domainName, stage);
+    await sendToConnection(apiGw, connectionId, {
+      action: 'error',
+      message: 'Game is already full.',
+    });
+    logger.warn('join-game: conditional write lost — game already full', { code });
+    return OK;
   }
 
   // Store reverse lookup for the guest

@@ -72,6 +72,12 @@ export function useWebRTC({
   const channelRef = useRef<RTCDataChannel | null>(null);
   const [rtcStatus, setRtcStatus] = useState<RTCStatus>('idle');
 
+  // ICE candidates that arrive before setRemoteDescription has been called are
+  // buffered here and drained once the remote description is set. Dropping them
+  // causes connection failures on high-latency or relay-heavy paths.
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const remoteDescriptionSetRef = useRef(false);
+
   // Keep a stable ref to the onDataMessage callback so the channel handler
   // doesn't go stale
   const onDataMessageRef = useRef(onDataMessage);
@@ -82,6 +88,8 @@ export function useWebRTC({
   const createPeerConnection = useCallback((iceServers: RTCIceServer[]): RTCPeerConnection => {
     const pc = new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
+    pendingCandidatesRef.current = [];
+    remoteDescriptionSetRef.current = false;
 
     pc.onicecandidate = ({ candidate }) => {
       if (candidate) {
@@ -143,6 +151,8 @@ export function useWebRTC({
         // RTCSessionDescriptionInit (offer or answer)
         pc.setRemoteDescription(new RTCSessionDescription(payload))
           .then(async () => {
+            remoteDescriptionSetRef.current = true;
+
             if (payload.type === 'offer') {
               // Guest receives offer — create and send answer
               console.log('rtc: offer received, creating answer');
@@ -151,13 +161,30 @@ export function useWebRTC({
               sendSignal(answer);
               console.log('rtc: answer created and sent');
             }
+
+            // Drain any ICE candidates that arrived before the remote
+            // description was set
+            const queued = pendingCandidatesRef.current.splice(0);
+            if (queued.length > 0) {
+              console.log('rtc: draining', queued.length, 'buffered ICE candidate(s)');
+            }
+            for (const candidate of queued) {
+              pc.addIceCandidate(new RTCIceCandidate(candidate)).catch((err) =>
+                console.error('rtc: addIceCandidate (drained) failed', err)
+              );
+            }
           })
           .catch((err) => console.error('rtc: setRemoteDescription failed', err));
       } else {
-        // RTCIceCandidateInit
-        pc.addIceCandidate(new RTCIceCandidate(payload)).catch((err) =>
-          console.error('rtc: addIceCandidate failed', err)
-        );
+        // RTCIceCandidateInit — buffer if remote description not yet set
+        if (!remoteDescriptionSetRef.current) {
+          console.log('rtc: buffering ICE candidate (remote description not yet set)');
+          pendingCandidatesRef.current.push(payload as RTCIceCandidateInit);
+        } else {
+          pc.addIceCandidate(new RTCIceCandidate(payload as RTCIceCandidateInit)).catch((err) =>
+            console.error('rtc: addIceCandidate failed', err)
+          );
+        }
       }
     });
 
@@ -167,30 +194,40 @@ export function useWebRTC({
   // Host: create offer and data channel
   const initAsHost = useCallback(async () => {
     console.log('rtc: initAsHost called');
-    const iceServers = await fetchIceServers();
-    const pc = createPeerConnection(iceServers);
+    try {
+      const iceServers = await fetchIceServers();
+      const pc = createPeerConnection(iceServers);
 
-    // Host creates the data channel
-    const channel = pc.createDataChannel('game', { ordered: true });
-    attachDataChannel(channel);
+      // Host creates the data channel
+      const channel = pc.createDataChannel('game', { ordered: true });
+      attachDataChannel(channel);
 
-    console.log('rtc: creating offer');
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    sendSignal(offer);
-    console.log('rtc: offer created and sent');
+      console.log('rtc: creating offer');
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      sendSignal(offer);
+      console.log('rtc: offer created and sent');
+    } catch (err) {
+      console.error('rtc: initAsHost failed', err);
+      setRtcStatus('failed');
+    }
   }, [createPeerConnection, attachDataChannel, sendSignal]);
 
   // Guest: wait for the data channel to be offered by the host
   const initAsGuest = useCallback(async () => {
     console.log('rtc: initAsGuest called');
-    const iceServers = await fetchIceServers();
-    const pc = createPeerConnection(iceServers);
+    try {
+      const iceServers = await fetchIceServers();
+      const pc = createPeerConnection(iceServers);
 
-    // Guest receives the data channel created by the host
-    pc.ondatachannel = ({ channel }) => {
-      attachDataChannel(channel);
-    };
+      // Guest receives the data channel created by the host
+      pc.ondatachannel = ({ channel }) => {
+        attachDataChannel(channel);
+      };
+    } catch (err) {
+      console.error('rtc: initAsGuest failed', err);
+      setRtcStatus('failed');
+    }
   }, [createPeerConnection, attachDataChannel]);
 
   const sendData = useCallback((msg: DataChannelMessage) => {
@@ -207,6 +244,8 @@ export function useWebRTC({
     pcRef.current?.close();
     channelRef.current = null;
     pcRef.current = null;
+    pendingCandidatesRef.current = [];
+    remoteDescriptionSetRef.current = false;
     setRtcStatus('idle');
   }, []);
 

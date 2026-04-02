@@ -16,6 +16,21 @@ export class SignalingStack extends cdk.Stack {
     super(scope, id, props);
 
     // -------------------------------------------------------------------------
+    // GitHub org/repo — read once at the top; used for both the IAM role trust
+    // policy and the TURN credentials CORS origin.
+    // Set GITHUB_ORG and GITHUB_REPO when running cdk deploy locally.
+    // -------------------------------------------------------------------------
+    const githubOrg = process.env.GITHUB_ORG ?? '';
+    const githubRepo = process.env.GITHUB_REPO ?? '';
+
+    if (!githubOrg || !githubRepo) {
+      throw new Error(
+        'GITHUB_ORG and GITHUB_REPO must be set when deploying. ' +
+        'Example: GITHUB_ORG=your-username GITHUB_REPO=tictactoe npx cdk deploy'
+      );
+    }
+
+    // -------------------------------------------------------------------------
     // DynamoDB — single table storing signaling session state
     //
     // Two record types (see CLAUDE.md for full schema):
@@ -155,6 +170,9 @@ export class SignalingStack extends cdk.Stack {
 
     // turn-credentials — HTTP GET endpoint returning fresh Cloudflare TURN
     // credentials. Called by the client before initiating a WebRTC handshake.
+    const corsOrigin = githubOrg
+      ? `https://${githubOrg}.github.io`
+      : '*';
     const turnCredentialsFn = new lambdaNode.NodejsFunction(this, 'TurnCredentialsFunction', {
       ...commonLambdaProps,
       entry: path.join(__dirname, '../lambda/turn-credentials/index.ts'),
@@ -162,6 +180,7 @@ export class SignalingStack extends cdk.Stack {
       description: 'Returns short-lived Cloudflare TURN credentials for WebRTC ICE negotiation',
       environment: {
         TURN_SECRET_ARN: turnSecret.secretArn,
+        CORS_ORIGIN: corsOrigin,
       },
     });
 
@@ -185,7 +204,7 @@ export class SignalingStack extends cdk.Stack {
     // DynamoDB permissions — least privilege per function
     // See CLAUDE.md for the rationale behind each grant
     // -------------------------------------------------------------------------
-    table.grantReadData(connectFn);                    // connect reads nothing, but grant read for health checks
+    // connectFn does not access DynamoDB — no grant needed
     table.grantReadWriteData(disconnectFn);            // needs GetItem + DeleteItem
     table.grantWriteData(createGameFn);                // needs PutItem only
     table.grantReadWriteData(joinGameFn);              // needs GetItem + UpdateItem + PutItem
@@ -310,14 +329,8 @@ export class SignalingStack extends cdk.Stack {
 
     // -------------------------------------------------------------------------
     // GitHub Actions IAM role — OIDC federation, no static credentials
-    //
-    // Set GITHUB_ORG and GITHUB_REPO when running cdk deploy locally so the
-    // role is scoped to the correct repository:
-    //   GITHUB_ORG=your-username GITHUB_REPO=tictactoe npx cdk deploy
+    // (githubOrg and githubRepo are declared at the top of the constructor)
     // -------------------------------------------------------------------------
-    const githubOrg = process.env.GITHUB_ORG ?? '';
-    const githubRepo = process.env.GITHUB_REPO ?? '';
-
     const githubActionsRole = new iam.Role(this, 'GitHubActionsRole', {
       roleName: 'tictactoe-github-actions',
       description: 'Assumed by GitHub Actions via OIDC to deploy infra and build the frontend',

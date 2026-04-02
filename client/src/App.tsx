@@ -232,7 +232,7 @@ export default function App() {
       <div className="flex flex-col items-center justify-center min-h-full px-4 py-4">
         {(view === 'lobby' || view === 'signaling') && (
           <h1 className="text-3xl font-bold tracking-tight mb-8 text-gray-800 dark:text-gray-100">
-            Tic-Tac-Toe
+            3DTTT
           </h1>
         )}
 

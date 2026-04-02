@@ -9,6 +9,7 @@ import { Board, Square } from '../lib/signaling';
 interface BoardProps {
   board: Board;
   winningLine: number[] | null;
+  lastMove: number | null;
   isMyTurn: boolean;
   onSquareClick: (square: number) => void;
 }
@@ -25,12 +26,14 @@ function LayerGrid({
   layer,
   board,
   winningSet,
+  lastMove,
   isMyTurn,
   onSquareClick,
 }: {
   layer: number;
   board: Board;
   winningSet: Set<number> | null;
+  lastMove: number | null;
   isMyTurn: boolean;
   onSquareClick: (square: number) => void;
 }) {
@@ -42,6 +45,7 @@ function LayerGrid({
       const index = layer * 16 + row * 4 + col;
       const value: Square = board[index];
       const isWinning = winningSet?.has(index) ?? false;
+      const isLastMove = index === lastMove;
       const isEmpty = value === null;
       const isClickable = isEmpty && isMyTurn;
 
@@ -57,11 +61,15 @@ function LayerGrid({
             // Base background
             isWinning
               ? 'bg-indigo-100 dark:bg-indigo-900/50'
+              : isLastMove
+              ? 'bg-gray-100 dark:bg-gray-800'
               : 'bg-white dark:bg-gray-900',
             // Border
             'border-2',
             isWinning
               ? 'border-indigo-400 dark:border-indigo-500'
+              : isLastMove
+              ? 'border-gray-400 dark:border-gray-500'
               : 'border-gray-200 dark:border-gray-700',
             // Text color by symbol
             value === 'X'
@@ -108,6 +116,7 @@ function LayerGrid({
 export default function BoardComponent({
   board,
   winningLine,
+  lastMove,
   isMyTurn,
   onSquareClick,
 }: BoardProps) {
@@ -121,6 +130,7 @@ export default function BoardComponent({
           layer={layer}
           board={board}
           winningSet={winningSet}
+          lastMove={lastMove}
           isMyTurn={isMyTurn}
           onSquareClick={onSquareClick}
         />

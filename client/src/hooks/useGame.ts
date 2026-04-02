@@ -42,6 +42,7 @@ export interface GameState {
   isOver: boolean;
   mySymbol: Player;
   isMyTurn: boolean;
+  lastMove: number | null;
 }
 
 export interface UseGameProps {
@@ -70,6 +71,7 @@ export function useGame({
 
   const [board, setBoard] = useState<Board>(emptyBoard);
   const [currentTurn, setCurrentTurn] = useState<Player>('X'); // X always goes first
+  const [lastMove, setLastMove] = useState<number | null>(null);
 
   // Stable ref for board so the data message handler can read current state
   // without being re-registered on every render
@@ -102,6 +104,7 @@ export function useGame({
       const nextTurn: Player = player === 'X' ? 'O' : 'X';
       setBoard(nextBoard);
       setCurrentTurn(nextTurn);
+      setLastMove(square);
     },
     []
   );
@@ -147,6 +150,7 @@ export function useGame({
     console.log('game: board reset');
     setBoard(emptyBoard());
     setCurrentTurn('X');
+    setLastMove(null);
     setLocalWantsPlayAgain(false);
     setPeerWantsPlayAgain(false);
     setSwapped((s) => !s);
@@ -176,6 +180,7 @@ export function useGame({
   const resetGame = useCallback(() => {
     setBoard(emptyBoard());
     setCurrentTurn('X');
+    setLastMove(null);
     setLocalWantsPlayAgain(false);
     setPeerWantsPlayAgain(false);
     setSwapped(false);
@@ -200,6 +205,7 @@ export function useGame({
     isOver,
     mySymbol,
     isMyTurn,
+    lastMove,
     makeMove,
     resetGame,
     requestPlayAgain,

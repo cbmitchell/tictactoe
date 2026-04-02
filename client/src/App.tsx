@@ -264,6 +264,7 @@ export default function App() {
             <Board
               board={game.board}
               winningLine={game.winningLine}
+              lastMove={game.lastMove}
               isMyTurn={game.isMyTurn}
               onSquareClick={game.makeMove}
             />

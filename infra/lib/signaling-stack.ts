@@ -23,13 +23,6 @@ export class SignalingStack extends cdk.Stack {
     const githubOrg = process.env.GITHUB_ORG ?? '';
     const githubRepo = process.env.GITHUB_REPO ?? '';
 
-    if (!githubOrg || !githubRepo) {
-      throw new Error(
-        'GITHUB_ORG and GITHUB_REPO must be set when deploying. ' +
-        'Example: GITHUB_ORG=your-username GITHUB_REPO=tictactoe npx cdk deploy'
-      );
-    }
-
     // -------------------------------------------------------------------------
     // DynamoDB — single table storing signaling session state
     //

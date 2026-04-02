@@ -65,7 +65,8 @@ export function useGame({
   onDataMessage,
   onPlayAgain,
 }: UseGameProps): UseGameReturn {
-  const mySymbol: Player = role === 'host' ? 'X' : 'O';
+  const [swapped, setSwapped] = useState(false);
+  const mySymbol: Player = (role === 'host') !== swapped ? 'X' : 'O';
 
   const [board, setBoard] = useState<Board>(emptyBoard);
   const [currentTurn, setCurrentTurn] = useState<Player>('X'); // X always goes first
@@ -148,6 +149,7 @@ export function useGame({
     setCurrentTurn('X');
     setLocalWantsPlayAgain(false);
     setPeerWantsPlayAgain(false);
+    setSwapped((s) => !s);
     onPlayAgainRef.current?.();
   }, []);
 
@@ -180,6 +182,7 @@ export function useGame({
     setCurrentTurn('X');
     setLocalWantsPlayAgain(false);
     setPeerWantsPlayAgain(false);
+    setSwapped(false);
   }, []);
 
   const requestPlayAgain = useCallback(() => {

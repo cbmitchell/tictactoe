@@ -20,6 +20,7 @@ interface GameStatusProps {
   isOver: boolean;
   localWantsPlayAgain: boolean;
   peerWantsPlayAgain: boolean;
+  isLocal: boolean;
   onPlayAgain: () => void;
   onDisconnect: () => void;
 }
@@ -34,12 +35,17 @@ export default function GameStatus({
   isOver,
   localWantsPlayAgain,
   peerWantsPlayAgain,
+  isLocal,
   onPlayAgain,
   onDisconnect,
 }: GameStatusProps) {
   let message: string;
 
-  if (opponentDisconnected) {
+  if (isLocal) {
+    if (winner)       message = `${winner} wins!`;
+    else if (isDrawn) message = "It's a draw.";
+    else              message = `${currentTurn}'s turn.`;
+  } else if (opponentDisconnected) {
     message = 'Your opponent disconnected.';
   } else if (winner) {
     message = winner === mySymbol ? 'You win!' : 'Your opponent wins.';
@@ -58,7 +64,16 @@ export default function GameStatus({
 
   let rematchUI: React.ReactNode = null;
   if (isOver && !opponentDisconnected) {
-    if (localWantsPlayAgain) {
+    if (isLocal) {
+      rematchUI = (
+        <button
+          onClick={onPlayAgain}
+          className="w-full py-2.5 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-sm transition-colors"
+        >
+          Play again
+        </button>
+      );
+    } else if (localWantsPlayAgain) {
       rematchUI = (
         <p className="text-sm text-gray-400 dark:text-gray-500 animate-pulse">
           Waiting for opponent to accept rematch…
@@ -93,15 +108,21 @@ export default function GameStatus({
   return (
     <div className="w-full bg-white dark:bg-gray-900 rounded-2xl shadow-lg dark:shadow-gray-950 p-5 flex flex-col items-center gap-4">
       <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-        <span>Playing as</span>
-        <span className={`font-bold text-base ${symbolColor}`}>{mySymbol}</span>
+        {isLocal ? (
+          <span>Local game</span>
+        ) : (
+          <>
+            <span>Playing as</span>
+            <span className={`font-bold text-base ${symbolColor}`}>{mySymbol}</span>
+          </>
+        )}
       </div>
 
       <p className={`text-base font-semibold text-center ${
         opponentDisconnected
           ? 'text-red-500 dark:text-red-400'
           : winner
-          ? winner === mySymbol
+          ? isLocal || winner === mySymbol
             ? 'text-indigo-600 dark:text-indigo-400'
             : 'text-gray-600 dark:text-gray-300'
           : isDrawn

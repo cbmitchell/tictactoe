@@ -18,6 +18,7 @@ interface LobbyProps {
   inviteCode: string | null;
   onCreateGame: () => void;
   onJoinGame: (code: string) => void;
+  onPlayLocally: () => void;
   onCancel: () => void;
 }
 
@@ -26,6 +27,7 @@ export default function Lobby({
   inviteCode,
   onCreateGame,
   onJoinGame,
+  onPlayLocally,
   onCancel,
 }: LobbyProps) {
   const [mode, setMode] = useState<'choose' | 'join'>('choose');
@@ -90,6 +92,12 @@ export default function Lobby({
               className="w-full py-2.5 px-4 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold text-sm transition-colors"
             >
               Join game
+            </button>
+            <button
+              onClick={onPlayLocally}
+              className="w-full py-2.5 px-4 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold text-sm transition-colors"
+            >
+              Play locally
             </button>
           </div>
         </>

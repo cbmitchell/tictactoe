@@ -50,12 +50,14 @@ export interface UseGameProps {
   sendData: UseWebRTCReturn['sendData'];
   onDataMessage: (handler: (msg: DataChannelMessage) => void) => () => void;
   onPlayAgain?: () => void;
+  isLocal?: boolean;
 }
 
 export interface UseGameReturn extends GameState {
   makeMove: (square: number) => void;
   resetGame: () => void;
   requestPlayAgain: () => void;
+  doReset: () => void;
   localWantsPlayAgain: boolean;
   peerWantsPlayAgain: boolean;
 }
@@ -65,6 +67,7 @@ export function useGame({
   sendData,
   onDataMessage,
   onPlayAgain,
+  isLocal = false,
 }: UseGameProps): UseGameReturn {
   const [swapped, setSwapped] = useState(false);
   const mySymbol: Player = (role === 'host') !== swapped ? 'X' : 'O';
@@ -117,8 +120,8 @@ export function useGame({
 
       console.log('game: move attempted', { square, isMyTurn: turn === mySymbol });
 
-      // Only allow moves on the player's own turn
-      if (turn !== mySymbol) {
+      // Only allow moves on the player's own turn (skipped in local mode — both players share the screen)
+      if (!isLocal && turn !== mySymbol) {
         console.warn('game: move rejected — not my turn', { square, mySymbol, currentTurn: turn });
         return;
       }
@@ -127,14 +130,17 @@ export function useGame({
         return;
       }
 
+      // In local mode use the current turn's symbol; in online mode use our fixed symbol
+      const player = isLocal ? turn : mySymbol;
+
       // Apply locally
-      applyMoveToState(square, mySymbol, currentBoard);
-      console.log('game: move applied', { square, player: mySymbol });
+      applyMoveToState(square, player, currentBoard);
+      console.log('game: move applied', { square, player });
 
       // Send to peer
       sendData({ type: 'move', square });
     },
-    [mySymbol, applyMoveToState, sendData]
+    [mySymbol, isLocal, applyMoveToState, sendData]
   );
 
   // Stable refs so data message handler can read current values without stale closures
@@ -209,6 +215,7 @@ export function useGame({
     makeMove,
     resetGame,
     requestPlayAgain,
+    doReset,
     localWantsPlayAgain,
     peerWantsPlayAgain,
   };

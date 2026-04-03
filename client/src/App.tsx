@@ -30,6 +30,14 @@ export default function App() {
   const [role, setRole] = useState<Role>(URL_INVITE_CODE ? 'guest' : 'host');
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [opponentDisconnected, setOpponentDisconnected] = useState(false);
+  const [isLocal, setIsLocal] = useState(false);
+
+  // No-op send/receive used in local mode (no peer connection)
+  const noopSendData = useCallback((_msg: DataChannelMessage) => {}, []);
+  const noopOnDataMessage = useCallback(
+    (_handler: (msg: DataChannelMessage) => void) => () => {},
+    []
+  );
 
   // Data message handlers — registered by useGame, called by useWebRTC
   type DataHandler = (msg: DataChannelMessage) => void;
@@ -124,9 +132,10 @@ export default function App() {
   // -----------------------------------------------------------------------
   const game = useGame({
     role,
-    sendData: webrtc.sendData,
-    onDataMessage,
+    sendData: isLocal ? noopSendData : webrtc.sendData,
+    onDataMessage: isLocal ? noopOnDataMessage : onDataMessage,
     onPlayAgain: useCallback(() => setView('playing'), []),
+    isLocal,
   });
 
   // Transition to ended when game is over
@@ -189,19 +198,35 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handlePlayLocally = useCallback(() => {
+    setIsLocal(true);
+    setRole('host');
+    setOpponentDisconnected(false);
+    setView('playing');
+  }, []);
+
   const handlePlayAgain = useCallback(() => {
     setOpponentDisconnected(false);
-    game.requestPlayAgain();
-  }, [game]);
+    if (isLocal) {
+      game.doReset();
+    } else {
+      game.requestPlayAgain();
+    }
+  }, [game, isLocal]);
 
   const handleDisconnect = useCallback(() => {
     webrtc.close();
     signaling.disconnect();
     setInviteCode(null);
     setOpponentDisconnected(false);
+    setIsLocal(false);
     game.resetGame();
     setView('lobby');
   }, [webrtc, signaling, game]);
+
+  // In local mode both players share the screen, so the board is always
+  // clickable as long as the game is not over.
+  const effectiveIsMyTurn = isLocal ? !game.isOver : game.isMyTurn;
 
   // -----------------------------------------------------------------------
   // Render
@@ -242,6 +267,7 @@ export default function App() {
             inviteCode={inviteCode}
             onCreateGame={handleCreateGame}
             onJoinGame={handleJoinGame}
+            onPlayLocally={handlePlayLocally}
             onCancel={handleDisconnect}
           />
         )}
@@ -253,11 +279,12 @@ export default function App() {
               currentTurn={game.currentTurn}
               winner={game.winner}
               isDrawn={game.isDrawn}
-              isMyTurn={game.isMyTurn}
+              isMyTurn={effectiveIsMyTurn}
               opponentDisconnected={opponentDisconnected}
               isOver={game.isOver || opponentDisconnected}
               localWantsPlayAgain={game.localWantsPlayAgain}
               peerWantsPlayAgain={game.peerWantsPlayAgain}
+              isLocal={isLocal}
               onPlayAgain={handlePlayAgain}
               onDisconnect={handleDisconnect}
             />
@@ -265,7 +292,7 @@ export default function App() {
               board={game.board}
               winningLine={game.winningLine}
               lastMove={game.lastMove}
-              isMyTurn={game.isMyTurn}
+              isMyTurn={effectiveIsMyTurn}
               onSquareClick={game.makeMove}
             />
           </div>
